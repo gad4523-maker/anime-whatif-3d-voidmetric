@@ -1,19 +1,22 @@
-// Voidmetric v3.1 Painted Cel-Shaded 3D Anime Environment Engine!
-// Builds richly textured, inked `twoTone` anime sets using deterministic high-res procedural CanvasTextures
-// (wood planks, wainscoting plaster, Japanese chalkboards, blueprint boards, textured asphalt/sidewalks,
-// detailed city facades, painted anime meadow grass, tree bark, clay running tracks, cracked wasteland rock)
-// so EVERY location looks like a distinct painted anime background — NEVER flat untextured Play-Doh boxes!
+// Voidmetric v3.2 Custom-First Painted Cel-Shaded 3D Anime Environment Toolkit & Optional Sets!
+//
+// CUSTOM-FIRST DESIGN: Hardcoded preset rooms are OPTIONAL — never mandatory!
+// Use the exported primitives below (`hash01`, `makeEnvTex`, `cel`, `celTex`, `makePaintedMat`) to build
+// ANY custom textured 3D anime location the episode needs (pirate ship deck, Shibuya subway, Stone-World
+// village, brick rooftops, tatami dojo, dungeon boss hall, lab, stadium, spacecraft) with rich painted
+// CanvasTextures + `twoTone` cel lighting + ink outlines — NEVER flat untextured Play-Doh boxes!
 import * as THREE from "three";
 import { twoTone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";
 
-// Deterministic PRNG (zero Math.random() so every Remotion frame renders identically across parallel workers!)
-function hash01(seed: number): number {
+/** Deterministic PRNG (zero Math.random() so every Remotion frame renders identically across parallel workers!) */
+export function hash01(seed: number): number {
   const s = Math.sin(seed * 127.1 + 311.7) * 43758.5453123;
   return s - Math.floor(s);
 }
 
-function makeEnvTex(
+/** Paint ANY deterministic high-res procedural anime CanvasTexture (brick, tatami, wood, ocean, signs, stone, tile)! */
+export function makeEnvTex(
   w: number,
   h: number,
   draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
@@ -35,9 +38,23 @@ function makeEnvTex(
   return tex;
 }
 
-const cel = (color: string) => twoTone(new THREE.MeshLambertMaterial({ color }));
-const celTex = (map: THREE.Texture, tint = "#ffffff") =>
+/** Flat inked cel-shaded material (for small trim/metal accents; prefer `celTex` / `makePaintedMat` for walls/floors!). */
+export const cel = (color: string) => twoTone(new THREE.MeshLambertMaterial({ color }));
+
+/** Textured inked cel-shaded material: multiplies ANY CanvasTexture into Voidmetric's two-tone shadow & ink pipeline! */
+export const celTex = (map: THREE.Texture, tint = "#ffffff") =>
   twoTone(new THREE.MeshLambertMaterial({ color: tint, map }));
+
+/** One-call custom painted cel-shaded material factory for building brand-new textured worlds & props on demand! */
+export function makePaintedMat(
+  w: number,
+  h: number,
+  draw: (ctx: CanvasRenderingContext2D, w: number, h: number) => void,
+  opts: { repeatX?: number; repeatY?: number; tint?: string } = {}
+): THREE.MeshLambertMaterial {
+  const tex = makeEnvTex(w, h, draw, opts.repeatX ?? 1, opts.repeatY ?? 1);
+  return celTex(tex, opts.tint ?? "#ffffff");
+}
 
 // ---------------------------------------------------------------------------
 // Painted Cel-Anime Procedural Texture Library (Exported for custom episode props!)

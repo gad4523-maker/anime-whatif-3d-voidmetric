@@ -1,9 +1,13 @@
-// Voidmetric v3.0 Universal Studio 3D GLSL Anime VFX Arsenal (100% Color-Parameterized — Zero Episode Hardcoding!)
+// Voidmetric v3.2 Custom-First 3D GLSL Anime VFX Toolkit & Optional Presets (Zero Episode Hardcoding!)
 // Built natively for Three.js + InkPass -> 2-pass LensBlur -> 6-level HDR Mipmap Bloom -> NEUTRAL -> Grade.
-// Every VFX mesh lives strictly on layer NOINK so world InkPass never outlines energy, and shaders push HDR linear
-// luminance > 1.0..5.0 directly into BloomEffect for true cinematic game-engine anime glow.
 //
-// 9 Universal Studio 3D VFX Engines included:
+// CUSTOM-FIRST DESIGN: Hardcoded presets below are OPTIONAL — never mandatory!
+// Use the exported toolkit (`setNoInkTree`, `NOISE_GLSL`, `getGlowSpriteTex`, `createCustomVFXMat`) to author
+// ANY bespoke 3D anime or physical effect on demand (water/flame ribbons, steam/smoke, chalk dust, rain,
+// ODM gas trails, time-stop bubble, Stand projection, Room dome, sparks, shadow army, slashes — anything!).
+// Every VFX mesh lives strictly on layer NOINK so world InkPass never outlines energy/smoke/particles.
+//
+// 9 Optional Ready-Made 3D VFX Engines also included if helpful:
 //   1. `EnergyOrb3D`      — Volumetric FBM plasma orb + optional dark-void core + corona + 3 orbital ribbons + 32 shards
 //   2. `EnergyAura3D`     — 3-shell nested volumetric anime flame/ki column + ground vortex + 64 embers + 6 jagged 3D lightning bolts
 //   3. `EnergyBeam3D`     — Kamehameha / laser / blast beam cannon (pulsing core + helical sheath + muzzle shock rings + sparks)
@@ -16,7 +20,8 @@
 import * as THREE from "three";
 import { NOINK } from "../bridge/ink";
 
-const setNoInkTree = (root: THREE.Object3D) => {
+/** Mark any custom VFX Object3D tree strictly on layer NOINK (no world ink outline, no shadow casting). */
+export const setNoInkTree = (root: THREE.Object3D) => {
   root.traverse((o) => {
     o.layers.set(NOINK);
     if ((o as THREE.Mesh).isMesh) {
@@ -26,8 +31,8 @@ const setNoInkTree = (root: THREE.Object3D) => {
   });
 };
 
-// Shared GLSL 3D Value/FBM Noise Chunk (deterministic, zero texture fetches, GPU/swangle fast!)
-const NOISE_GLSL = /* glsl */ `
+/** Shared deterministic GLSL 3D Value/FBM Noise Chunk (zero texture fetches, fast on GPU & swangle CPU!) */
+export const NOISE_GLSL = /* glsl */ `
 float hash31(vec3 p) {
   p = fract(p * 0.1031);
   p += dot(p, p.yzx + 33.33);
@@ -58,7 +63,8 @@ float fbm3(vec3 p) {
 `;
 
 const glowTexCache = new Map<string, THREE.CanvasTexture>();
-function getGlowSpriteTex(col: THREE.Color): THREE.CanvasTexture {
+/** Cached soft radial sprite texture for custom particles, sparks, steam puffs, snow, embers, or magic motes! */
+export function getGlowSpriteTex(col: THREE.Color): THREE.CanvasTexture {
   const key = col.getHexString();
   const cached = glowTexCache.get(key);
   if (cached) return cached;
@@ -79,6 +85,67 @@ function getGlowSpriteTex(col: THREE.Color): THREE.CanvasTexture {
   t.colorSpace = THREE.SRGBColorSpace;
   glowTexCache.set(key, t);
   return t;
+}
+
+/**
+ * One-call custom 3D GLSL VFX ShaderMaterial factory!
+ * Automatically supplies `NOISE_GLSL` (`hash31`, `vnoise`, `fbm3`), `uTime`, `uIntensity`, `uColorA`, `uColorB`,
+ * `vUv`, `vNormal`, `vViewDir`, and `vWorldPos` so agents can author ANY custom effect on demand without boilerplate.
+ * Always call `setNoInkTree(mesh)` after creating your mesh!
+ */
+export function createCustomVFXMat(opts: {
+  fragmentBody: string;
+  colorA?: THREE.ColorRepresentation;
+  colorB?: THREE.ColorRepresentation;
+  extraUniforms?: Record<string, THREE.IUniform>;
+  additive?: boolean;
+  doubleSide?: boolean;
+  vertexShader?: string;
+}): THREE.ShaderMaterial {
+  const uniforms: Record<string, THREE.IUniform> = {
+    uTime: { value: 0 },
+    uIntensity: { value: 1 },
+    uColorA: { value: new THREE.Color(opts.colorA ?? "#38d8ff") },
+    uColorB: { value: new THREE.Color(opts.colorB ?? "#ffffff") },
+    ...(opts.extraUniforms ?? {}),
+  };
+  const defaultVert = /* glsl */ `
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+    void main() {
+      vUv = uv;
+      vec4 wp = modelMatrix * vec4(position, 1.0);
+      vWorldPos = wp.xyz;
+      vNormal = normalize(mat3(modelMatrix) * normal);
+      vViewDir = normalize(cameraPosition - wp.xyz);
+      gl_Position = projectionMatrix * viewMatrix * wp;
+    }
+  `;
+  const frag = /* glsl */ `
+    uniform float uTime;
+    uniform float uIntensity;
+    uniform vec3 uColorA;
+    uniform vec3 uColorB;
+    varying vec2 vUv;
+    varying vec3 vNormal;
+    varying vec3 vViewDir;
+    varying vec3 vWorldPos;
+    ${NOISE_GLSL}
+    void main() {
+      ${opts.fragmentBody}
+    }
+  `;
+  return new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: opts.vertexShader ?? defaultVert,
+    fragmentShader: frag,
+    transparent: true,
+    depthWrite: false,
+    blending: opts.additive === false ? THREE.NormalBlending : THREE.AdditiveBlending,
+    side: opts.doubleSide === false ? THREE.FrontSide : THREE.DoubleSide,
+  });
 }
 
 export type VFXPaletteOpts = {

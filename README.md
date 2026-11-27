@@ -1,14 +1,16 @@
-# `anime-whatif-3d-voidmetric` — Voidmetric `v3.1` Studio 3D Anime "What If" Workflow Pack
+# `anime-whatif-3d-voidmetric` — Voidmetric `v3.2` Studio 3D Anime "What If" Workflow Pack
 
 A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — supporting **100% cloud execution inside Gemini Tasks (`1080×1920`, 30 fps, CPU-safe chunked rendering)**, **Local PC GPU Render Studio (`1440×2560` 2K)**, and **1-click Google Colab Pro (`L4`/`T4` GPU)**.
 
 ---
 
-## `v3.1` Studio Engine Highlights
+## `v3.2` Custom-First Studio Engine Highlights
 
-- **Painted Cel-Anime Textured 3D World Engine (`env3d_core.ts`):**
-  - 10+ deterministic high-res procedural `CanvasTexture` generators (staggered wood planks, wainscoting plaster walls, Japanese green chalkboard with equations, pinned technical blueprint corkboard, textured asphalt & tiled sidewalks, multi-pane city building facades, painted anime meadow grass, inked tree bark, painterly foliage clusters, red terracotta school running track with white lanes, fractured wasteland strata).
-  - **9 Dedicated Painted Anime Sets:** `buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildModernRoom`, `buildCityStreet`, `buildForestGrove`, `buildBattlefieldCrater`, and `buildCosmicRealm` *(supernatural episodes only!)* — zero untextured flat Play-Doh boxes!
+- **Custom-First Painted 3D Environment Toolkit (`env3d_core.ts`) — Presets Are Optional!:**
+  - Exported primitives (**`makePaintedMat`**, **`makeEnvTex`**, **`celTex`**, **`cel`**, **`hash01`**) let Gemini Tasks build **ANY custom textured 3D anime location from scratch** (pirate ship deck, Shibuya subway, brick rooftops, Stone-World straw village, feudal dojo, dungeon boss hall, soccer pitch) with deterministic `CanvasTexture` detail + `twoTone` cel lighting + ink outlines — never stuck with hardcoded rooms and never flat untextured Play-Doh boxes!
+  - Plus **9 Optional Painted Anime Sets** (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildModernRoom`, `buildCityStreet`, `buildForestGrove`, `buildBattlefieldCrater`, `buildCosmicRealm`) and 10+ reusable procedural textures whenever helpful.
+- **Custom-First 3D GLSL VFX Toolkit (`vfx3d_core.ts`) — Presets Are Optional!:**
+  - Exported shader & particle toolkit (**`createCustomVFXMat`**, **`NOISE_GLSL`**, **`setNoInkTree`**, **`getGlowSpriteTex`**) lets Gemini Tasks author **ANY bespoke 3D VFX or physical FX on demand** (water/flame ribbons, time-stop bubble, slash cage, shadow mist, flask steam, furnace smoke, chalk dust, rain, sparks) cleanly on layer `NOINK` with HDR bloom — plus 9 optional universal VFX engines (`EnergyOrb3D`, `EnergyAura3D`, `EnergyBeam3D`, `LightningArc3D`, etc.) when they fit!
 - **Genre-Aware Visual Direction & Multi-Scale Cinematography (`SKILL.md` + `whatif_cli.py`):**
   - Mandatory 4-mode genre classifier (`supernatural_combat`, `grounded_genius`, `mecha_tech`, `dark_thriller`) that **strictly bans** fantasy magic halos, energy auras, and levitation on grounded anime like *Dr. STONE*, *Death Note*, *Vinland Saga*, or *Blue Lock*.
   - `check-framing` supports `"shot_type": "full_body" | "medium" | "closeup" | "insert"` (`allow_bottom_crop`), enabling expressive close-ups (`1.6–2.1 m`) & prop inserts (`1.1–1.5 m`) with strict headroom/side protection + Rule-of-Thirds staging!
@@ -43,7 +45,7 @@ Start at Stage 1 & Stage 2:
 2. Run the Full-Canon Lore Fact-Checker (original source manga/manhwa/light novels + official databooks + canon anime — NOT limited to anime-only; exclude non-canon filler/fan myths and flag unadapted spoilers) and draft LORE_FACT_SHEET.md + tight 52–62s (150–175 words) SCRIPT.md + Adversarial Lore Audit.
 3. PAUSE for my approval on the fact sheet & script.
 4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create highly accurate, detailed 3D anime character rigs using `buildAnimeHead3D()` + `createAnimeFaceController()` matching EVERY proportion, facial feature, sculpted hair lock, outfit detail, and accessory of the original character from my reference images (never circle heads or generic placeholders!). Render all turnaround, 3/4 profile, cast lineup, AND live expression plates (`f0..f5`) and SHOW ME the created characters. Do NOT proceed further to video/world/VFX creation until I explicitly approve the characters!
-5. STAGE 6 CINEMATOGRAPHY: Use distinct painted sets (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`), mix close-ups/inserts/mediums/wides (`shot_type` in `check-framing`), stage characters off-center beside chalkboards/blueprints, and never leave MC frozen holding an invisible orb!
+5. STAGE 6 CUSTOM-FIRST WORLDS, VFX & CINEMATOGRAPHY: Hardcoded environment & VFX presets are OPTIONAL — freely build ANY custom textured 3D location (`makePaintedMat`/`makeEnvTex`/`celTex`/`hash01`) and ANY bespoke 3D GLSL/physical VFX (`createCustomVFXMat`/`NOISE_GLSL`/`setNoInkTree`/`getGlowSpriteTex`) the episode needs (zero untextured Play-Doh boxes, and zero fantasy magic auras on grounded anime!). Mix close-ups/inserts/mediums/wides (`shot_type` in `check-framing`), stage characters off-center beside chalkboards/blueprints, and never leave MC frozen holding an invisible orb!
 6. STAGE 7 RENDER CHOICE: Once Stage 6 Look-Check passes, ASK ME whether I want the `.zip` bundle (`package-colab`, including `shots.json` & `mix.wav`) to render on my Local PC Render Studio or Google Colab Pro GPU, OR if you should render the full 1080p 30 fps video right here via `python3 scripts/whatif_cli.py render-cloud` + `qa-audit`.
 ```
 

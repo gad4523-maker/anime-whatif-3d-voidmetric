@@ -1,11 +1,13 @@
-// Voidmetric v3.1 Starter 3D World + Painted Cel Environments + Genre-Appropriate VFX!
-// IMPORTANT (v3.1 Genre Rule):
-//   - For `grounded_genius` anime (Dr. STONE, Death Note, Vinland Saga, Blue Lock, etc.):
-//     REMOVE EnergyOrb3D, EnergyAura3D, and buildCosmicRealm completely! Use painted realistic sets
-//     (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`)
-//     and physical 3D props instead — NEVER slap magic halos or energy auras on non-magic anime!
-//   - For `supernatural_combat` anime (DBZ, JJK, Bleach, Naruto, JoJo, Solo Leveling):
-//     Use the color-parameterized GLSL VFX engines below (or custom shaders in vfx3d.ts).
+// Voidmetric v3.2 Custom-First Painted 3D World & Genre-Appropriate VFX!
+// IMPORTANT (v3.2 Custom-First Rule — Hardcoded Presets Are OPTIONAL!):
+//   - Build ANY custom textured anime location the episode needs directly here using exported primitives from
+//     `env3d_core.ts` (`makeEnvTex`, `celTex`, `makePaintedMat`, `hash01`) — e.g. pirate ship deck, Shibuya
+//     subway, brick rooftops, Stone-World straw village, feudal dojo, dungeon hall, spaceship bridge!
+//     The 9 preset builders (`buildBedroom`, `buildClassroom`, `buildScienceLab`, etc.) are OPTIONAL shortcuts.
+//   - Author ANY custom 3D GLSL VFX or physical FX (steam, smoke, rain, elemental ribbons, time-stop, slashes,
+//     sparks) directly in `vfx3d.ts` or here using `createCustomVFXMat`, `NOISE_GLSL`, `setNoInkTree`, and
+//     `getGlowSpriteTex`! The 9 preset VFX classes are OPTIONAL — and for `grounded_genius` anime, REMOVE
+//     EnergyOrb3D / EnergyAura3D / buildCosmicRealm completely (zero magic halos on non-magic anime!).
 import * as THREE from "three";
 import { TONE, CHAR, untone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";
