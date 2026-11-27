@@ -23,6 +23,9 @@ import { SubtitlesOverlay } from "./Subtitles";
 
 export const EPISODE_FRAMES = TOTAL;
 
+// MSAA: 0 for CPU-only cloud sandboxes (Gemini Tasks swangle: ~2.5x faster & ~40% less RAM), 4 for local GPU PCs!
+const EFFECT_MSAA = {{MSAA_SAMPLES}};
+
 const makeBloom = () => {
   const b = new BloomEffect({
     blendFunction: BlendFunction.ADD,
@@ -98,7 +101,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   return (
     <>
       <primitive object={world.root} dispose={null} />
-      <EffectComposer multisampling={4}>{passes}</EffectComposer>
+      <EffectComposer multisampling={EFFECT_MSAA}>{passes}</EffectComposer>
     </>
   );
 };

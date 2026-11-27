@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
-"""Voidmetric Anime What-If 3D Short — Unified Production CLI.
+"""Voidmetric Anime What-If 3D Short — Unified Cross-Platform Production CLI.
 
-Usage (always invoke via `uv run`):
-  uv run scripts/whatif_cli.py init-episode --slug gojo-infinity --title "What If You Woke Up With Gojo's Infinity?" --remotion-root F:/burgess/remotion-shorts --output /tmp/init.json
-  uv run scripts/whatif_cli.py check-framing --shots-config shots_framing.json --output framing_report.json
-  uv run scripts/whatif_cli.py sync-subtitles --words-json words.json --fps 30 --max-words 3 --ts-out subtitles_data.ts --output subs_report.json
-  uv run scripts/whatif_cli.py compress-ref --input master_2k.mp4 --output ref_720p.mp4 --max-mb 25
-  uv run scripts/whatif_cli.py qa-audit --video master_2k.mp4 --shots-json shots.json --qa-dir out/qa --output qa_report.json
+Works identically on:
+  - Gemini Tasks Cloud Linux Sandbox (Debian 12, 2 vCPUs, CPU-only swangle, 1080x1920 @ 30 fps) via `python3` or `uv run`
+  - Local GPU Workstations (Windows/Linux/macOS, angle GPU, 1440x2560 2K @ 30 fps) via `uv run`
+
+Subcommands:
+  init-episode    Scaffold episode workspace (+ optional --bootstrap-remotion for fresh cloud boxes)
+  check-framing   Exact 9:16 perspective frustum zero-clipping validator
+  sync-subtitles  Generate rock-steady floating karaoke subtitles_data.ts
+  render-cloud    OOM-proof, resumable chunked CPU 1080p render + FFmpeg concat + audio mux
+  compress-ref    Compress master MP4 into GitHub-safe reference clip (<= max-mb)
+  qa-audit        Run short_qa.py & enforce Voidmetric thresholds (cloud-1080p or local-2k)
 """
 
 from __future__ import annotations
 
 import argparse
+import glob
 import json
 import math
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -36,6 +43,10 @@ def fail(msg: str) -> None:
     sys.exit(1)
 
 
+def default_tmp_dir() -> str:
+    return "/tmp/remotion-tmp" if platform.system() != "Windows" else "F:/remotion-tmp"
+
+
 # ---------------------------------------------------------------------------
 # 1. init-episode
 # ---------------------------------------------------------------------------
@@ -47,6 +58,8 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
     remotion_root = Path(args.remotion_root).resolve()
     proj_dir = remotion_root / "projects" / slug
     src_dir = remotion_root / "src" / "videos" / slug
+    profile = args.profile
+    msaa = "0" if profile == "cloud-1080p" else "4"
 
     created_dirs: list[str] = []
     for sub in ["voice", "audio", "refs", "rigs3d", "stills_3d", "out"]:
@@ -66,24 +79,42 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             shutil.copy2(src, dst)
             copied_files.append(str(dst))
 
+    # Optional: bootstrap full Remotion + Three.js project on fresh cloud sandboxes (e.g. Gemini Tasks)
+    if args.bootstrap_remotion or not (remotion_root / "package.json").exists():
+        starter = TEMPLATES_DIR / "starter-remotion"
+        for rel in ["package.json", "remotion.config.ts", "tsconfig.json", "src/index.ts"]:
+            copy_if_missing(starter / rel, remotion_root / rel)
+        root_dst = remotion_root / "src" / "Root.tsx"
+        if not root_dst.exists() or args.force:
+            root_txt = (starter / "src" / "Root.tsx").read_text(encoding="utf-8")
+            root_dst.parent.mkdir(parents=True, exist_ok=True)
+            root_dst.write_text(root_txt.replace("{{EPISODE_SLUG}}", slug), encoding="utf-8")
+            copied_files.append(str(root_dst))
+
     # Locked Voidmetric 3D Anime Rig core + permanent Channel MC rig + guest rig starter
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_core.ts", src_dir / "rig3d_core.ts")
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_mc.ts", src_dir / "rig3d_mc.ts")
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_guest_template.ts", src_dir / "rig3d_guest.ts")
 
-    # 3D GLSL VFX starter + locked clean floating subtitles + LookCheck3D + composition template
+    # 3D GLSL VFX starter + locked clean floating subtitles + LookCheck3D
     copy_if_missing(TEMPLATES_DIR / "vfx" / "vfx3d_core.ts", src_dir / "vfx3d.ts")
     copy_if_missing(TEMPLATES_DIR / "composition" / "Subtitles.tsx", src_dir / "Subtitles.tsx")
     copy_if_missing(TEMPLATES_DIR / "composition" / "LookCheck3D.tsx", src_dir / "LookCheck3D.tsx")
-    copy_if_missing(TEMPLATES_DIR / "composition" / "ShortTemplate.tsx", src_dir / "EpisodeShort.tsx")
+
+    # Instantiate EpisodeShort.tsx with profile MSAA (0 on cloud CPU swangle, 4 on GPU PC)
+    ep_dst = src_dir / "EpisodeShort.tsx"
+    if not ep_dst.exists() or args.force:
+        ep_txt = (TEMPLATES_DIR / "composition" / "ShortTemplate.tsx").read_text(encoding="utf-8")
+        ep_dst.write_text(ep_txt.replace("{{MSAA_SAMPLES}}", msaa), encoding="utf-8")
+        copied_files.append(str(ep_dst))
 
     # Audio master mix template + BS.1770-4 DSP core
     copy_if_missing(TEMPLATES_DIR / "audio" / "mix_template.py", proj_dir / "audio" / "mix_episode.py")
     copy_if_missing(TEMPLATES_DIR / "audio" / "dsp.py", proj_dir / "audio" / "dsp.py")
 
-    # Ensure shared bridge post-processing exists if initializing into a fresh Remotion project
+    # Ensure shared bridge post-processing exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
-    if not bridge_dir.exists():
+    if not bridge_dir.exists() or args.force:
         bridge_dir.mkdir(parents=True, exist_ok=True)
         for eng_file in ["ink.ts", "lensblur.ts", "grade.ts", "shade.ts"]:
             copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
@@ -107,19 +138,24 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
         "status": "ok",
         "slug": slug,
         "title": args.title,
+        "profile": profile,
+        "msaa_samples": int(msaa),
+        "remotion_bootstrapped": bool(args.bootstrap_remotion or (remotion_root / "package.json").exists()),
         "project_dir": str(proj_dir),
         "src_dir": str(src_dir),
         "created_dirs": created_dirs,
         "files_written": copied_files,
         "next_steps": [
-            "1. Complete Canon Fact-Check & fill LORE_FACT_SHEET.md (flagging any manga spoilers).",
-            "2. Draft SCRIPT.md (~175-195 words, ~60 s), run Adversarial Lore Audit, and get user approval.",
-            "3. Build guest 3D anime rig(s) in rig3d_guest.ts, export .glb, and get turnaround approval.",
-            "4. Run check-framing & render LookCheck3D (16 frames) before full native 1440x2560 2K render.",
+            "1. If on a fresh cloud sandbox, run `npm install` in remotion_root and `pip install numpy scipy pillow`.",
+            "2. Complete Canon Fact-Check & fill LORE_FACT_SHEET.md (flagging any manga spoilers).",
+            "3. Draft SCRIPT.md (~175-195 words, ~60 s), run Adversarial Lore Audit, and get user approval.",
+            "4. Build guest 3D anime rig(s) in rig3d_guest.ts, export .glb, and get turnaround approval.",
+            "5. Run check-framing & render EpisodeLookCheck3D (16 frames) before full render.",
+            "6. Render via `render-cloud` (cloud-1080p) or native EpisodeShort2K (local-2k), then run `qa-audit`.",
         ],
     }
     write_json(out_path, payload)
-    print(f"Success! Episode '{slug}' scaffolded. Manifest written to: {out_path}")
+    print(f"Success! Episode '{slug}' ({profile}, MSAA={msaa}) scaffolded. Manifest written to: {out_path}")
 
 
 # ---------------------------------------------------------------------------
@@ -189,8 +225,7 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
             depth = _vec_dot(rel, fwd)
             if depth <= 0.15:
                 any_fail = True
-                issue = {"subject": name, "severity": "ERROR", "reason": f"Subject behind or too close to camera (depth={depth:.2f}m)"}
-                shot_issues.append(issue)
+                shot_issues.append({"subject": name, "severity": "ERROR", "reason": f"Subject behind/too close (depth={depth:.2f}m)"})
                 continue
 
             cx = _vec_dot(rel, right)
@@ -230,13 +265,7 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
                 )
             elif min_edge < min_margin:
                 status = "TIGHT_WARNING"
-                shot_issues.append(
-                    {
-                        "subject": name,
-                        "severity": "TIGHT_WARNING",
-                        "min_margin_m": round(min_edge, 3),
-                    }
-                )
+                shot_issues.append({"subject": name, "severity": "TIGHT_WARNING", "min_margin_m": round(min_edge, 3)})
 
             subject_reports.append(
                 {
@@ -307,13 +336,7 @@ def cmd_sync_subtitles(args: argparse.Namespace) -> None:
         nonlocal cur
         if not cur:
             return
-        chunks.append(
-            {
-                "fStart": cur[0]["fStart"],
-                "fEnd": cur[-1]["fEnd"],
-                "words": cur,
-            }
-        )
+        chunks.append({"fStart": cur[0]["fStart"], "fEnd": cur[-1]["fEnd"], "words": cur})
         cur = []
 
     for item in words:
@@ -325,13 +348,9 @@ def cmd_sync_subtitles(args: argparse.Namespace) -> None:
         clean = re.sub(r"[^a-z0-9'-]+", "", text.lower())
         tone = "purple" if clean in purple_kw else ("gold" if clean in gold_kw else "normal")
 
-        # Break chunk on pause > 0.35 s
         if cur and (f_start - cur[-1]["fEnd"]) > int(round(0.35 * fps)):
             flush()
-
         cur.append({"text": text, "fStart": f_start, "fEnd": f_end, "tone": tone})
-
-        # Break chunk on max words or strong punctuation
         if len(cur) >= max_words or text.endswith((".", "!", "?", "—", ",")):
             flush()
     flush()
@@ -361,7 +380,149 @@ def cmd_sync_subtitles(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 4. compress-ref (GitHub-Safe Reference Video Compressor)
+# 4. render-cloud (OOM-Proof Resumable Chunked 1080p CPU Render for Gemini Tasks)
+# ---------------------------------------------------------------------------
+def _cleanup_remotion_tmp(tmp_dir: Path) -> None:
+    for pattern in ["remotion-webpack-bundle-*", "puppeteer_dev_chrome_profile-*"]:
+        for match in glob.glob(str(tmp_dir / pattern)):
+            shutil.rmtree(match, ignore_errors=True)
+
+
+def cmd_render_cloud(args: argparse.Namespace) -> None:
+    remotion_root = Path(args.remotion_root).resolve()
+    out_video = Path(args.out_video).resolve()
+    tmp_dir = Path(args.tmp_dir).resolve()
+    total_frames = int(args.total_frames)
+    chunk_frames = int(args.chunk_frames)
+
+    if total_frames <= 0 or chunk_frames <= 0:
+        fail("--total-frames and --chunk-frames must be positive integers.")
+    if not args.dry_run and not (remotion_root / "package.json").exists():
+        fail(f"Remotion project package.json not found in: {remotion_root}")
+
+    chunk_ranges: list[tuple[int, int]] = []
+    f0 = 0
+    while f0 < total_frames:
+        f1 = min(total_frames - 1, f0 + chunk_frames - 1)
+        chunk_ranges.append((f0, f1))
+        f0 = f1 + 1
+
+    chunks_dir = out_video.parent / f".{out_video.stem}_chunks"
+    chunk_files: list[Path] = []
+    for idx, (a, b) in enumerate(chunk_ranges):
+        chunk_files.append(chunks_dir / f"chunk_{idx:02d}_{a:04d}_{b:04d}.mp4")
+
+    if args.dry_run:
+        plan = {
+            "status": "dry_run",
+            "composition": args.composition,
+            "gl": args.gl,
+            "concurrency": int(args.concurrency),
+            "crf": int(args.crf),
+            "total_frames": total_frames,
+            "chunk_frames": chunk_frames,
+            "num_chunks": len(chunk_ranges),
+            "chunks": [{"index": i, "frames": f"{a}-{b}", "file": str(chunk_files[i])} for i, (a, b) in enumerate(chunk_ranges)],
+            "audio": args.audio or None,
+            "out_video": str(out_video),
+            "tmp_dir": str(tmp_dir),
+        }
+        write_json(Path(args.output).resolve(), plan)
+        print(f"Dry-run OK: {len(chunk_ranges)} chunks planned ({chunk_frames}f each, gl={args.gl}, concurrency={args.concurrency}). Report: {args.output}")
+        return
+
+    chunks_dir.mkdir(parents=True, exist_ok=True)
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    out_video.parent.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["REMOTION_TMP"] = str(tmp_dir)
+    env["TEMP"] = str(tmp_dir)
+    env["TMP"] = str(tmp_dir)
+    env["REMOTION_GL"] = args.gl
+
+    npx_bin = shutil.which("npx") or "npx"
+    rendered_info: list[dict[str, Any]] = []
+
+    for idx, ((a, b), cfile) in enumerate(zip(chunk_ranges, chunk_files)):
+        if cfile.exists() and cfile.stat().st_size > 25_000 and not args.force:
+            rendered_info.append({"index": idx, "frames": f"{a}-{b}", "status": "resumed_cached", "bytes": cfile.stat().st_size})
+            continue
+
+        cmd = [
+            npx_bin,
+            "remotion",
+            "render",
+            "src/index.ts",
+            args.composition,
+            str(cfile),
+            f"--frames={a}-{b}",
+            "--codec=h264",
+            f"--crf={args.crf}",
+            "--pixel-format=yuv420p",
+            f"--gl={args.gl}",
+            f"--concurrency={args.concurrency}",
+            "--log=error",
+        ]
+        proc = subprocess.run(cmd, cwd=str(remotion_root), env=env, capture_output=True, text=True)
+        _cleanup_remotion_tmp(tmp_dir)
+        if proc.returncode != 0:
+            fail(f"Chunk {idx} ({a}-{b}) failed (exit {proc.returncode}): {proc.stderr.strip() or proc.stdout.strip()}")
+        rendered_info.append({"index": idx, "frames": f"{a}-{b}", "status": "rendered", "bytes": cfile.stat().st_size})
+
+    concat_list = chunks_dir / "concat.txt"
+    concat_lines = [f"file '{cf.resolve().as_posix()}'" for cf in chunk_files]
+    concat_list.write_text("\n".join(concat_lines) + "\n", encoding="utf-8")
+
+    silent_mp4 = chunks_dir / "joined_silent.mp4"
+    c_proc = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(concat_list), "-c", "copy", str(silent_mp4)],
+        capture_output=True,
+        text=True,
+    )
+    if c_proc.returncode != 0:
+        fail(f"FFmpeg concat failed: {c_proc.stderr.strip()}")
+
+    if args.audio:
+        audio_path = Path(args.audio).resolve()
+        if not audio_path.exists():
+            fail(f"Audio track not found: {audio_path}")
+        m_proc = subprocess.run(
+            [
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(silent_mp4), "-i", str(audio_path),
+                "-map", "0:v:0", "-map", "1:a:0",
+                "-c:v", "copy", "-c:a", "aac", "-b:a", "256k",
+                "-movflags", "+faststart", "-shortest", str(out_video),
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if m_proc.returncode != 0:
+            fail(f"FFmpeg audio mux failed: {m_proc.stderr.strip()}")
+    else:
+        shutil.copy2(silent_mp4, out_video)
+
+    if not args.keep_chunks:
+        shutil.rmtree(chunks_dir, ignore_errors=True)
+
+    size_mb = round(out_video.stat().st_size / (1024 * 1024), 2)
+    report = {
+        "status": "ok",
+        "composition": args.composition,
+        "gl": args.gl,
+        "concurrency": int(args.concurrency),
+        "total_frames": total_frames,
+        "chunks": rendered_info,
+        "out_video": str(out_video),
+        "size_mb": size_mb,
+    }
+    write_json(Path(args.output).resolve(), report)
+    print(f"Success! Rendered {total_frames} frames in {len(chunk_ranges)} chunks ({size_mb} MB) -> {out_video}")
+
+
+# ---------------------------------------------------------------------------
+# 5. compress-ref (GitHub-Safe Reference Video Compressor)
 # ---------------------------------------------------------------------------
 def cmd_compress_ref(args: argparse.Namespace) -> None:
     inp = Path(args.input).resolve()
@@ -375,30 +536,11 @@ def cmd_compress_ref(args: argparse.Namespace) -> None:
     max_mb = float(args.max_mb)
 
     cmd = [
-        "ffmpeg",
-        "-y",
-        "-hide_banner",
-        "-loglevel",
-        "error",
-        "-i",
-        str(inp),
-        "-vf",
-        f"scale=-2:{height}:flags=lanczos",
-        "-c:v",
-        "libx264",
-        "-preset",
-        "slow",
-        "-crf",
-        str(crf),
-        "-pix_fmt",
-        "yuv420p",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "-movflags",
-        "+faststart",
-        str(out),
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(inp),
+        "-vf", f"scale=-2:{height}:flags=lanczos",
+        "-c:v", "libx264", "-preset", "slow", "-crf", str(crf), "-pix_fmt", "yuv420p",
+        "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out),
     ]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     if proc.returncode != 0:
@@ -411,21 +553,13 @@ def cmd_compress_ref(args: argparse.Namespace) -> None:
     if args.report:
         write_json(
             Path(args.report).resolve(),
-            {
-                "status": "ok",
-                "input": str(inp),
-                "output": str(out),
-                "height": height,
-                "crf": crf,
-                "size_mb": round(size_mb, 2),
-                "max_mb": max_mb,
-            },
+            {"status": "ok", "input": str(inp), "output": str(out), "height": height, "crf": crf, "size_mb": round(size_mb, 2), "max_mb": max_mb},
         )
     print(f"Success! Compressed reference video ({size_mb:.2f} MB <= {max_mb:.1f} MB) written to: {out}")
 
 
 # ---------------------------------------------------------------------------
-# 5. qa-audit (Wraps short_qa.py & checks Voidmetric Master Thresholds)
+# 6. qa-audit (Wraps short_qa.py & checks Voidmetric Master Thresholds)
 # ---------------------------------------------------------------------------
 def cmd_qa_audit(args: argparse.Namespace) -> None:
     video = Path(args.video).resolve()
@@ -440,17 +574,15 @@ def cmd_qa_audit(args: argparse.Namespace) -> None:
     if not short_qa.exists():
         fail(f"short_qa.py missing at: {short_qa}")
 
+    expected_dims = (1080, 1920) if args.profile == "cloud-1080p" else (1440, 2560)
+
     uv_bin = shutil.which("uv")
     if uv_bin:
         qa_cmd = [uv_bin, "run", "--with", "numpy", "--with", "pillow", str(short_qa), str(video), str(qa_dir), str(shots_json)]
     else:
         qa_cmd = [sys.executable, str(short_qa), str(video), str(qa_dir), str(shots_json)]
 
-    proc = subprocess.run(
-        qa_cmd,
-        capture_output=True,
-        text=True,
-    )
+    proc = subprocess.run(qa_cmd, capture_output=True, text=True)
     if proc.returncode != 0:
         fail(f"short_qa.py failed (exit {proc.returncode}): {proc.stderr.strip() or proc.stdout.strip()}")
 
@@ -462,6 +594,8 @@ def cmd_qa_audit(args: argparse.Namespace) -> None:
 
     failures: list[str] = []
     parsed: dict[str, Any] = {
+        "profile": args.profile,
+        "expected_dims": f"{expected_dims[0]}x{expected_dims[1]}",
         "video": str(video),
         "qa_dir": str(qa_dir),
         "size_mb": round(video.stat().st_size / (1024 * 1024), 2),
@@ -470,8 +604,8 @@ def cmd_qa_audit(args: argparse.Namespace) -> None:
     if specs_m:
         w, h, fps, nframes, dur = int(specs_m.group(1)), int(specs_m.group(2)), int(specs_m.group(3)), int(specs_m.group(4)), float(specs_m.group(5))
         parsed.update({"width": w, "height": h, "fps": fps, "frames": nframes, "duration_s": dur})
-        if (w, h) != (1440, 2560):
-            failures.append(f"Expected 2K 1440x2560, got {w}x{h}")
+        if (w, h) != expected_dims:
+            failures.append(f"Expected {expected_dims[0]}x{expected_dims[1]} ({args.profile}), got {w}x{h}")
         if fps != 30:
             failures.append(f"Expected 30 fps, got {fps}")
     else:
@@ -506,7 +640,7 @@ def cmd_qa_audit(args: argparse.Namespace) -> None:
 
     out_path = Path(args.output).resolve()
     write_json(out_path, parsed)
-    print(f"QA Audit {parsed['status']} ({len(failures)} failures). Report written to: {out_path}")
+    print(f"QA Audit [{args.profile}] {parsed['status']} ({len(failures)} failures). Report written to: {out_path}")
     if failures:
         sys.exit(1)
 
@@ -519,6 +653,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--slug", required=True, help="URL-safe episode slug (e.g. gojo-limitless)")
     p_init.add_argument("--title", required=True, help="Full episode title")
     p_init.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
+    p_init.add_argument("--profile", choices=["cloud-1080p", "local-2k"], default="cloud-1080p", help="Render profile (cloud-1080p sets MSAA=0 for Gemini Tasks CPU)")
+    p_init.add_argument("--bootstrap-remotion", action="store_true", help="Copy starter Remotion package.json/config/Root.tsx for fresh cloud sandboxes")
     p_init.add_argument("--output", required=True, help="Path to write JSON manifest")
     p_init.add_argument("--force", action="store_true", help="Overwrite existing starter files")
     p_init.set_defaults(func=cmd_init_episode)
@@ -541,8 +677,25 @@ def build_parser() -> argparse.ArgumentParser:
     p_sub.add_argument("--accent-gold", default="", help="Comma-separated gold twist/emphasis keywords")
     p_sub.set_defaults(func=cmd_sync_subtitles)
 
-    p_cmp = sub.add_parser("compress-ref", help="Compress a 2K master MP4 into a GitHub-safe showcase MP4")
-    p_cmp.add_argument("--input", required=True, help="Source 2K master MP4")
+    p_rc = sub.add_parser("render-cloud", help="OOM-proof resumable chunked 1080p CPU render + FFmpeg concat/mux for Gemini Tasks")
+    p_rc.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
+    p_rc.add_argument("--composition", default="EpisodeShort1080", help="Remotion composition id (default EpisodeShort1080)")
+    p_rc.add_argument("--total-frames", type=int, required=True, help="Total frames to render (e.g. 1930)")
+    p_rc.add_argument("--chunk-frames", type=int, default=300, help="Frames per resumable chunk (default 300 = 10s)")
+    p_rc.add_argument("--audio", default="", help="Optional path to mastered mix.wav to mux into final MP4")
+    p_rc.add_argument("--out-video", required=True, help="Destination final MP4 path")
+    p_rc.add_argument("--tmp-dir", default=default_tmp_dir(), help="Temp directory cleaned between chunks")
+    p_rc.add_argument("--crf", type=int, default=17, help="H.264 CRF quality (default 17)")
+    p_rc.add_argument("--gl", default="swangle", choices=["swangle", "angle", "swiftshader"], help="Chromium WebGL renderer (swangle for CPU cloud)")
+    p_rc.add_argument("--concurrency", type=int, default=1, help="Browser concurrency (MUST be 1 on 6.9 GiB / 0 swap cloud boxes)")
+    p_rc.add_argument("--keep-chunks", action="store_true", help="Keep intermediate chunk MP4s after concat")
+    p_rc.add_argument("--force", action="store_true", help="Re-render existing cached chunks")
+    p_rc.add_argument("--dry-run", action="store_true", help="Output chunk plan JSON without running Chromium")
+    p_rc.add_argument("--output", required=True, help="Path to write render report JSON")
+    p_rc.set_defaults(func=cmd_render_cloud)
+
+    p_cmp = sub.add_parser("compress-ref", help="Compress a master MP4 into a GitHub-safe showcase MP4")
+    p_cmp.add_argument("--input", required=True, help="Source master MP4")
     p_cmp.add_argument("--output", required=True, help="Destination compressed MP4 path")
     p_cmp.add_argument("--max-mb", type=float, required=True, help="Maximum allowed output size in MB (e.g. 25)")
     p_cmp.add_argument("--height", type=int, default=1280, help="Output vertical height in pixels (default 1280)")
@@ -550,10 +703,11 @@ def build_parser() -> argparse.ArgumentParser:
     p_cmp.add_argument("--report", default="", help="Optional JSON report output path")
     p_cmp.set_defaults(func=cmd_compress_ref)
 
-    p_qa = sub.add_parser("qa-audit", help="Run short_qa.py and verify Voidmetric 2K master thresholds")
-    p_qa.add_argument("--video", required=True, help="Path to final 2K master MP4")
+    p_qa = sub.add_parser("qa-audit", help="Run short_qa.py and verify Voidmetric master thresholds")
+    p_qa.add_argument("--video", required=True, help="Path to final rendered MP4")
     p_qa.add_argument("--shots-json", required=True, help="Path to shots.json timeline file")
     p_qa.add_argument("--qa-dir", required=True, help="Directory to save QA contact sheets")
+    p_qa.add_argument("--profile", choices=["cloud-1080p", "local-2k"], required=True, help="Target resolution profile (cloud-1080p=1080x1920, local-2k=1440x2560)")
     p_qa.add_argument("--output", required=True, help="Path to write structured QA JSON report")
     p_qa.set_defaults(func=cmd_qa_audit)
 
