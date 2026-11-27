@@ -118,10 +118,17 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 2. **Adversarial Lore Audit:** Perform an independent line-by-line audit trying to **disprove every factual claim** in `SCRIPT.md` against `LORE_FACT_SHEET.md` and official canon. Fix any inaccuracy and record `PASS` sign-off in `LORE_FACT_SHEET.md`.
 3. Present `LORE_FACT_SHEET.md`, flagged manga spoilers, `SCRIPT.md`, and the 5 SFX prompts. **Wait for explicit user approval before rigging or audio.**
 
-### Stage 4 — 3D Anime Rig Showcase (**APPROVAL GATE 2**)
+### Stage 4 — 3D Anime Rig Showcase (**MANDATORY HARD STOP — APPROVAL GATE 2**)
+> [!CAUTION]
+> **HARD STOP BEFORE VIDEO CREATION:** You MUST create the 3D character rigs, render visual turnaround + close-up showcase images, and **show the rendered characters directly to the user for visual approval BEFORE building worlds, VFX, scene timelines, or rendering any video.** Never proceed straight from rigging into video production without explicit user approval!
+
 1. **Reuse `rig3d_mc.ts` untouched as the recurring Channel MC** (24 bones, razor-sharp anime V-jawline, glasses, spiky hair, black zip jacket/white tee). Only add episode-specific actions/expressions in `setAction`.
-2. Build guest 3D cel-shaded anime character rigs using `rig3d_core.ts` matching user reference images and Beerus quality bar (`references/beerus-gold-standard/rig3d_beerus_sheet.jpg`).
-3. Export portable `.glb` rigs via `scripts/export_rigs_glb.mjs`, render turnaround + hero action pose showcase sheets (`--gl=swangle --concurrency=1` in cloud, `--gl=angle --concurrency=4` on GPU), and present to the user. **Wait for explicit user approval before full scene production.**
+2. Build each guest 3D cel-shaded anime character rig using `rig3d_core.ts` matching user reference images and Beerus quality bar (`references/beerus-gold-standard/rig3d_beerus_sheet.jpg`).
+3. Export portable `.glb` rigs via `scripts/export_rigs_glb.mjs`, and render **clear visual showcase images** (`--gl=swangle --concurrency=1` in cloud, `--gl=angle --concurrency=4` on GPU):
+   - Front / 3/4 / Side / Back turnaround sheet for every newly created guest character,
+   - Tight face & expression close-up render,
+   - Full cast height/style lineup next to the locked Channel MC rig.
+4. **Present the rendered character showcase images to the user and STOP.** Wait for explicit approval (or apply any visual/anatomy/likeness fixes requested and re-show) before starting Stages 5–7!
 
 ### Stage 5 — Audio Mastering & Rock-Steady Karaoke Subtitle Sync
 1. Keep the user's uploaded voiceover **100% untouched** (48 kHz stereo WAV).

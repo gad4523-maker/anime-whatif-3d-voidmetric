@@ -32,7 +32,8 @@ Topic: "What If You Woke Up With [CHARACTER]'s Power?"
 Start at Stage 1 & Stage 2:
 1. Ask me for the character/VFX reference images and give me 5 tailored SFX generation prompts.
 2. Run the Full-Canon Lore Fact-Checker (original source manga/manhwa/light novels + official databooks + canon anime — NOT limited to anime-only; exclude non-canon filler/fan myths and flag unadapted spoilers) and draft LORE_FACT_SHEET.md + SCRIPT.md + Adversarial Lore Audit.
-3. Pause for my approval before building the 3D rigs!
+3. PAUSE for my approval on the fact sheet & script.
+4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create the 3D anime character rigs, render turnaround + face close-up + cast lineup images, and SHOW ME the created characters. Do NOT proceed to video/world/VFX creation until I explicitly approve the characters!
 ```
 
 ---
