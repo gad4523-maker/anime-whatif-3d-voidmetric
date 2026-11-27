@@ -1,11 +1,12 @@
-// Starter 3D Cast Controller — mounts Locked Channel MC (`rig3d_mc.ts`) + Guest Character (`rig3d_guest.ts`)
+// Voidmetric v3.0 3D Cast Controller — Independent Contact Shadows per Actor + Live Expressions + Universal Power Color!
 import * as THREE from "three";
 import { NOINK } from "../bridge/ink";
 import { blobMaterial } from "../bridge/cardshade";
 import { AnimeRig3D } from "./rig3d_core";
 import { buildMCRig3D } from "./rig3d_mc";
 import { buildGuestRig3D } from "./rig3d_guest";
-import { FPS, SHOTS, Z_HOME, Z_VOID, clamp01 } from "./story";
+import { applyAnimeMotion } from "./anim3d_core";
+import { EPISODE_POWER_COLOR, FPS, SHOTS, Z_HOME, Z_VOID, clamp01 } from "./story";
 
 const CARD_GEO = new THREE.PlaneGeometry(1, 1);
 
@@ -28,25 +29,34 @@ const contactBlobTex = (() => {
   return t;
 })();
 
+function makeActorBlob(parent: THREE.Object3D): THREE.Mesh {
+  const m = new THREE.Mesh(CARD_GEO, blobMaterial(contactBlobTex));
+  m.rotation.x = -Math.PI / 2;
+  m.renderOrder = 0.5;
+  m.layers.set(NOINK);
+  m.visible = false;
+  parent.add(m);
+  return m;
+}
+
 export class EpisodeCast {
   readonly mc: AnimeRig3D;
   readonly guest: AnimeRig3D;
-  private contactBlob: THREE.Mesh;
+  private blobs: Map<AnimeRig3D, THREE.Mesh>;
 
   constructor(parent: THREE.Object3D) {
-    this.mc = buildMCRig3D({ hakaiEyes: true });
+    this.mc = buildMCRig3D({ powerEyes: true, powerColor: EPISODE_POWER_COLOR });
     this.guest = buildGuestRig3D({ intense: false });
     this.mc.root.visible = false;
     this.guest.root.visible = false;
     parent.add(this.mc.root);
     parent.add(this.guest.root);
 
-    this.contactBlob = new THREE.Mesh(CARD_GEO, blobMaterial(contactBlobTex));
-    this.contactBlob.rotation.x = -Math.PI / 2;
-    this.contactBlob.renderOrder = 0.5;
-    this.contactBlob.layers.set(NOINK);
-    this.contactBlob.visible = false;
-    parent.add(this.contactBlob);
+    // Every actor gets its own independent grounded contact shadow blob (works cleanly when multiple actors share a shot!)
+    this.blobs = new Map<AnimeRig3D, THREE.Mesh>([
+      [this.mc, makeActorBlob(parent)],
+      [this.guest, makeActorBlob(parent)],
+    ]);
   }
 
   private place(rig: AnimeRig3D, x: number, y: number, z: number, yaw: number, scale: number, blob = true) {
@@ -54,10 +64,11 @@ export class EpisodeCast {
     rig.root.position.set(x, y, z);
     rig.root.rotation.set(0, yaw, 0);
     rig.root.scale.setScalar(scale);
-    if (blob) {
-      this.contactBlob.visible = true;
-      this.contactBlob.position.set(x, y + 0.015, z);
-      this.contactBlob.scale.set(0.95 * scale, 0.62 * scale, 1);
+    const b = this.blobs.get(rig);
+    if (b && blob) {
+      b.visible = true;
+      b.position.set(x, y + 0.015, z);
+      b.scale.set(0.95 * scale, 0.62 * scale, 1);
     }
   }
 
@@ -68,14 +79,16 @@ export class EpisodeCast {
 
     this.mc.root.visible = false;
     this.guest.root.visible = false;
-    this.contactBlob.visible = false;
+    for (const b of this.blobs.values()) b.visible = false;
 
     if (shotId === 1) {
-      this.mc.setAction?.("kitchen_wake_tap", p, t);
+      this.mc.setAction?.("wake_discover", p, t);
       this.place(this.mc, Z_HOME, 0, 0, 0.14, 1.0, true);
     } else {
-      this.guest.setAction?.("power_point", p, t);
-      this.place(this.guest, Z_VOID, 0.05, 0, -0.1 + p * 0.2, 1.02, false);
+      applyAnimeMotion(this.guest, "power_charge", p, t, 0.99);
+      this.guest.setExpr?.(p > 0.55 ? "shout" : "smirk", t);
+      this.guest.setGaze?.(0, 0.1);
+      this.place(this.guest, Z_VOID, 0.0, 0, -0.1 + p * 0.2, 1.02, true);
     }
   }
 }

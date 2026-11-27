@@ -1,11 +1,7 @@
-// Voidmetric Anime What-If 3D Short — Remotion + Three.js Composition Template
-// Exact mromidev post-processing chain:
+// Voidmetric v3.0 Anime What-If 3D Short — Remotion + Three.js + Sakuga Impact-Frame Composition!
+// Post-processing chain:
 //   InkPass (world layer 0 only) -> LensBlur.pre -> LensBlur.main -> 6-level HDR Mipmap BloomEffect ->
-//   ToneMappingEffect(NEUTRAL) -> GradeEffect (MSAA 4, resolution-scaled for 540p LookCheck, 1080p, AND native 2K 1440x2560!).
-//
-// Register BOTH compositions in src/Root.tsx:
-//   - `<EpisodeShort>`   at 1080x1920 @ 30 fps (preview)
-//   - `<EpisodeShort2K>` at 1440x2560 @ 30 fps (NATIVE 2K master — NEVER use --scale 1.3333!)
+//   ToneMappingEffect(NEUTRAL) -> GradeEffect -> Sakuga Impact Frames / Radial Speedlines -> Clean Floating Subtitles!
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
@@ -18,12 +14,13 @@ import { LensBlur } from "../bridge/lensblur";
 import { GradeEffect } from "../bridge/grade";
 import { EPISODE_LIGHTS } from "./lights";
 import { EpisodeWorld } from "./world";
-import { TOTAL, layersAt, flashAt, dofAt, lightForShot } from "./story";
+import { HIT_STOPS, IMPACT_FRAMES, SPEEDLINES, TOTAL, dofAt, flashAt, layersAt, lightForShot } from "./story";
+import { SakugaOverlay, applyHitStop, impactFilterAt } from "./sakuga_fx";
 import { SubtitlesOverlay } from "./Subtitles";
 
 export const EPISODE_FRAMES = TOTAL;
 
-// MSAA: MUST be >= 2 when LensBlur is active (postprocessing v6 shares depth buffer at MSAA=0 causing WebGL2 black-screen feedback loop!).
+// MSAA: MUST be >= 2 when LensBlur is active (postprocessing v6 shares depth buffer at MSAA=0 causing WebGL2 black-screen!).
 // Use 2 on CPU-only cloud sandboxes (Gemini Tasks swangle), 4 on GPU PCs & Colab L4/T4!
 const EFFECT_MSAA = {{MSAA_SAMPLES}};
 
@@ -76,15 +73,16 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   );
 
   const cam = camera as THREE.PerspectiveCamera;
-  const target = world.update(id, f, cam, scene);
+  const animF = applyHitStop(f, HIT_STOPS);
+  const target = world.update(id, animF, cam, scene);
 
-  const d = dofAt(id, f);
+  const d = dofAt(id, animF);
   cam.getWorldDirection(fwd);
   const focusDist = d.focusDist ?? Math.max(0.4, target.clone().sub(cam.position).dot(fwd));
   fx.lens.focus = focusDist;
   fx.lens.cInf = d.cInf;
 
-  const lName = lightForShot(id, f);
+  const lName = lightForShot(id, animF);
   fx.grade.set(EPISODE_LIGHTS[lName].grade);
 
   const passes = useMemo(
@@ -107,10 +105,10 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   );
 };
 
-const ShotView: React.FC<{ id: number; alpha: number; frame: number }> = ({ id, alpha, frame }) => {
+const ShotView: React.FC<{ id: number; alpha: number; frame: number; filter: string }> = ({ id, alpha, frame, filter }) => {
   const { width, height } = useVideoConfig();
   return (
-    <AbsoluteFill style={{ opacity: alpha }}>
+    <AbsoluteFill style={{ opacity: alpha, filter }}>
       <ThreeCanvas
         width={width}
         height={height}
@@ -131,12 +129,13 @@ export const EpisodeShort: React.FC<{ frameOverride?: number; hideSubtitles?: bo
   const curF = useCurrentFrame();
   const f = frameOverride ?? curF;
   const fl = flashAt(f);
+  const imp = impactFilterAt(f, IMPACT_FRAMES);
   return (
     <AbsoluteFill style={{ background: "#0b0618" }}>
       {layersAt(f).map((l, i) => (
-        <ShotView key={i ? "over" : "base"} id={l.id} alpha={l.alpha} frame={f} />
+        <ShotView key={i ? "over" : "base"} id={l.id} alpha={l.alpha} frame={f} filter={imp.filter} />
       ))}
-      {fl.alpha > 0.01 && <AbsoluteFill style={{ background: fl.color, opacity: fl.alpha }} />}
+      <SakugaOverlay frame={f} impacts={IMPACT_FRAMES} speedlines={SPEEDLINES} flash={fl} />
       {!hideSubtitles && <SubtitlesOverlay frameOverride={f} />}
     </AbsoluteFill>
   );

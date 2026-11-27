@@ -275,6 +275,9 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean; exp
   const setExpr = (expr: AnimeExpr | string, t = -1, talk = false) => {
     faceCtrl.setExpr(expr, t, talk, true);
   };
+  const setGaze = (gx: number, gy: number) => {
+    faceCtrl.setGaze(gx, gy);
+  };
 
   const setPose = (pose: string, t = 0) => {
     const breath = Math.sin(t * 2.4) * 0.016;
@@ -329,6 +332,7 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean; exp
     setPose,
     setAction,
     setExpr,
+    setGaze,
     setXRayRig: (on: boolean) => applyXRayMode(root, overlay, on),
     getBoneCount: () => boneCount,
   };

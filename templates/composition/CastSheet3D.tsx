@@ -147,25 +147,25 @@ const StudioScene: React.FC = () => {
         p.position.x = x;
         s.add(p);
       });
-      const m1 = buildMCRig3D({ hakaiEyes: true });
+      const m1 = buildMCRig3D({ powerEyes: true });
       m1.setPose("wake_orb", 0);
       m1.root.position.set(xs[0], 0, 0);
       m1.root.rotation.y = 0.08;
       s.add(m1.root);
 
-      const m2 = buildMCRig3D({ hakaiEyes: true });
-      m2.setPose("hakai_aura", 0);
+      const m2 = buildMCRig3D({ powerEyes: true });
+      m2.setPose("power_aura", 0);
       m2.root.position.set(xs[1], 0, 0);
       m2.root.rotation.y = -0.32;
       s.add(m2.root);
 
-      const m3 = buildMCRig3D({ hakaiEyes: false });
+      const m3 = buildMCRig3D({ powerEyes: false });
       m3.setPose("a_pose", 0);
       m3.root.position.set(xs[2], 0, 0);
       m3.root.rotation.y = Math.PI * 0.78;
       s.add(m3.root);
 
-      const m4 = buildMCRig3D({ hakaiEyes: false });
+      const m4 = buildMCRig3D({ powerEyes: false });
       m4.setPose("a_pose", 0);
       m4.setXRayRig(true);
       m4.root.position.set(xs[3], 0, 0);
@@ -183,7 +183,7 @@ const StudioScene: React.FC = () => {
       guest.root.rotation.y = 0.18;
       s.add(guest.root);
 
-      const mc = buildMCRig3D({ hakaiEyes: true });
+      const mc = buildMCRig3D({ powerEyes: true });
       mc.setPose("wake_orb", 0.1);
       mc.root.position.set(0.68, 0, 0.05);
       mc.root.rotation.y = -0.22;

@@ -4,7 +4,7 @@
 > [!IMPORTANT]
 > Every factual claim below must trace directly back to `LORE_FACT_SHEET.md` and pass the Adversarial Lore Audit before voiceover or 3D rigging begins. Avoid stale repetitive gimmicks (like inserting a robotic standalone `"Wrong."` in the middle — earn the turn naturally through a shocking visual consequence!).
 
-## Beat Formula (Proven on Beerus Gold Standard)
+## Beat Formula (Proven Voidmetric ~60s Viral Short Arc)
 1. **Immediate Visual Hook (`0–9 s`):** Wake up in an everyday morning setting and accidentally trigger the power on an ordinary object.
 2. **Iconic Character & Rule Reveal (`9–16 s`):** Cut to the canon anime character demonstrating the ability; state the exact canon mechanic cleanly.
 3. **Escalation Montage (`16–30 s`):** 3 escalating real-world tests (environment → defense/combat → accidental catastrophic escalation).

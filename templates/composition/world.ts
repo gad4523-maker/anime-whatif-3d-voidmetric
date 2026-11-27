@@ -1,12 +1,13 @@
-// Starter 3D World + Bone-Locked GLSL VFX Orchestrator (customize zones, props & shaders per episode!)
+// Voidmetric v3.0 Starter 3D World + Modular Cel Environments + Universal Bone-Locked GLSL VFX!
 import * as THREE from "three";
-import { TONE, CHAR, twoTone, untone } from "../bridge/shade";
+import { TONE, CHAR, untone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";
 import { EPISODE_LIGHTS, EpisodeLightName } from "./lights";
-import { FPS, Z_HOME, Z_VOID, camAt, lightForShot } from "./story";
+import { EPISODE_POWER_COLOR, EPISODE_POWER_CORE, FPS, Z_HOME, Z_VOID, camAt, lightForShot } from "./story";
 import { EpisodeCast } from "./cast";
 import { ANIME_LIGHT } from "./rig3d_core";
-import { HakaiOrb3D } from "./vfx3d";
+import { EnergyAura3D, EnergyOrb3D } from "./vfx3d";
+import { buildCosmicRealm, buildModernRoom, buildStarfield } from "./env3d_core";
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
@@ -27,7 +28,8 @@ export class EpisodeWorld {
     sunDisc: THREE.IUniform<THREE.Color>;
   };
   private fog = new THREE.Fog("#b8d0ec", 26, 320);
-  private handOrb: HakaiOrb3D;
+  private handOrb: EnergyOrb3D;
+  private guestAura: EnergyAura3D;
 
   constructor() {
     this.cast = new EpisodeCast(this.root);
@@ -72,19 +74,18 @@ export class EpisodeWorld {
     this.root.add(this.sun);
     this.root.add(this.sun.target);
 
-    const floorHome = new THREE.Mesh(new THREE.BoxGeometry(16, 0.4, 16), twoTone(new THREE.MeshLambertMaterial({ color: "#caa47a" })));
-    floorHome.position.set(Z_HOME, -0.2, 0);
-    floorHome.receiveShadow = true;
-    this.root.add(floorHome);
+    // Rich cel-shaded 3D environments built instantaneously from `env3d_core.ts`!
+    this.root.add(buildModernRoom(Z_HOME));
+    this.root.add(buildCosmicRealm(Z_VOID, { accentHex: EPISODE_POWER_COLOR }));
+    this.root.add(buildStarfield(Z_VOID));
 
-    const floorVoid = new THREE.Mesh(new THREE.BoxGeometry(24, 0.4, 24), twoTone(new THREE.MeshLambertMaterial({ color: "#1c1032" })));
-    floorVoid.position.set(Z_VOID, -0.2, 0);
-    floorVoid.receiveShadow = true;
-    this.root.add(floorVoid);
-
-    // Bone-locked 3D GLSL energy orb (tracks MC/Guest hand bones in real time!)
-    this.handOrb = new HakaiOrb3D(0.18);
+    // Universal color-parameterized 3D GLSL VFX (adapts in 1 line to ANY anime power palette!)
+    this.handOrb = new EnergyOrb3D(0.18, { primary: EPISODE_POWER_COLOR, core: EPISODE_POWER_CORE, darkCore: false });
     this.root.add(this.handOrb.group);
+
+    this.guestAura = new EnergyAura3D(2.45, 0.84, EPISODE_POWER_COLOR, EPISODE_POWER_CORE);
+    this.guestAura.group.position.set(Z_VOID, 0, 0);
+    this.root.add(this.guestAura.group);
   }
 
   private applyLight(name: EpisodeLightName, cam: THREE.PerspectiveCamera, look: THREE.Vector3, scene: THREE.Scene) {
@@ -160,15 +161,22 @@ export class EpisodeWorld {
     this.cast.update(shotId, f, cam, L.actorShadow);
     this.root.updateMatrixWorld(true);
 
-    // 2) Bone-locked VFX attachment example (tracks MC left wrist in shot 1, Guest right fingertip in shot 2!)
-    const targetBone = shotId === 1 ? this.cast.mc.joints.wristL : this.cast.guest.handR.fingers[1][1];
-    const worldPos = new THREE.Vector3(0, -0.05, 0);
-    targetBone.localToWorld(worldPos);
-    const toCam = new THREE.Vector3().subVectors(cam.position, worldPos).normalize();
-    worldPos.addScaledVector(toCam, 0.13);
-    worldPos.y += 0.16;
-    this.handOrb.group.position.copy(worldPos);
-    this.handOrb.update(t, 1.0, 0.65);
+    // 2) Bone-locked VFX attachment (tracks MC left wrist in shot 1, Guest aura in shot 2!)
+    if (shotId === 1) {
+      const targetBone = this.cast.mc.joints.wristL;
+      const worldPos = new THREE.Vector3(0, -0.05, 0);
+      targetBone.localToWorld(worldPos);
+      const toCam = new THREE.Vector3().subVectors(cam.position, worldPos).normalize();
+      worldPos.addScaledVector(toCam, 0.13);
+      worldPos.y += 0.16;
+      this.handOrb.group.position.copy(worldPos);
+      this.handOrb.update(t, 1.0, 0.65);
+      this.guestAura.update(t, 0.0, 1.0);
+    } else {
+      this.handOrb.update(t, 0.0, 0.0);
+      this.guestAura.group.position.copy(this.cast.guest.root.position);
+      this.guestAura.update(t, 1.0, 1.0);
+    }
 
     return look;
   }

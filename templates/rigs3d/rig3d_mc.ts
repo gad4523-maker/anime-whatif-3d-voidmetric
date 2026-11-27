@@ -1,10 +1,9 @@
-// Detailed 3D Anime Rig: RECURRING CHANNEL ANIME MC — Round 2 Studio Polish!
-// Fixes from Round 1 audit:
-//   - Jet-black matte 3D glasses frames (no metal whiteout!) framing 1.6x larger glowing Hakai eyes
-//   - Properly UV-aligned chin goatee/beard & confident shonen smirk cleanly centered on chin plane
-//   - Full sculpted inner hair cap + wider overlapping swept anime bangs (zero scalp gaps!) + matte charcoal hair
-//   - Matte cloth cel-shading on hoodie & cargo pants (zero plastic sheen, zero ball-joint shoulder seams!)
-//   - Shorter natural anime neck + fuller hoodie collar/hood drape!
+// Detailed 3D Anime Rig: LOCKED RECURRING CHANNEL ANIME MC (Voidmetric Universal v3.0)
+// Locked Signature Identity:
+//   - Sharp anime V-jawline + jet-black matte 3D glasses frames framing expressive glowing power eyes (any episode color!)
+//   - Spiky matte charcoal anime hair with overlapping swept forehead bangs + chin goatee & smirk
+//   - Open dark zip hoodie over cream crew-neck tee + cargo trousers + high-top sneakers
+//   - 24-bone articulated skeleton + live `setExpr` (normal/power/shock/pain/blink/shout) + color-parameterized `powerColor`!
 import * as THREE from "three";
 import {
   AnimeRig3D,
@@ -23,12 +22,17 @@ import {
   smStep,
 } from "./rig3d_core";
 
-export type MCExpr3D = "normal" | "hakai" | "shock" | "pain" | "blink" | "shout";
+export type MCExpr3D = "normal" | "power" | "shock" | "pain" | "blink" | "shout";
 
-function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
-  const hakaiGlow = expr === "hakai" || expr === "pain" || expr === "shout";
+function makeMCFaceTex(expr: MCExpr3D = "normal", powerHex = "#38d8ff"): THREE.CanvasTexture {
+  const powerGlow = expr === "power" || expr === "pain" || expr === "shout";
   const wide = expr === "shock" || expr === "pain";
   const isBlink = expr === "blink";
+  const pCol = new THREE.Color(powerHex);
+  const pCore = pCol.clone().lerp(new THREE.Color("#ffffff"), 0.72).getStyle();
+  const pMid = pCol.getStyle();
+  const pDeep = pCol.clone().multiplyScalar(0.45).getStyle();
+  const pRim = pCol.clone().multiplyScalar(0.18).getStyle();
   return makeCanvasTex(1024, 1024, (ctx, w, h) => {
     ctx.fillStyle = "#f2c9a2";
     ctx.fillRect(0, 0, w, h);
@@ -90,11 +94,11 @@ function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
       const iy = eyeY + 2;
       const irR = wide ? 17 : 24;
       const iGr = ctx.createRadialGradient(ix, iy + 5, 3, ix, iy, irR + 4);
-      if (hakaiGlow) {
-        iGr.addColorStop(0, "#ffe8ff");
-        iGr.addColorStop(0.36, "#f438ff");
-        iGr.addColorStop(0.76, "#7e12d6");
-        iGr.addColorStop(1, "#2a044a");
+      if (powerGlow) {
+        iGr.addColorStop(0, pCore);
+        iGr.addColorStop(0.36, pMid);
+        iGr.addColorStop(0.76, pDeep);
+        iGr.addColorStop(1, pRim);
       } else {
         iGr.addColorStop(0, "#4c4266");
         iGr.addColorStop(0.65, "#231d32");
@@ -105,9 +109,9 @@ function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
       ctx.ellipse(ix, iy, irR * 0.94, irR, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = hakaiGlow ? "#200236" : "#0b0712";
+      ctx.fillStyle = powerGlow ? pRim : "#0b0712";
       ctx.beginPath();
-      ctx.arc(ix, iy, wide ? 6.0 : (hakaiGlow ? 8.5 : 10.5), 0, Math.PI * 2);
+      ctx.arc(ix, iy, wide ? 6.0 : (powerGlow ? 8.5 : 10.5), 0, Math.PI * 2);
       ctx.fill();
 
       ctx.fillStyle = "#ffffff";
@@ -289,9 +293,14 @@ function makeMCHoodieTex(): THREE.CanvasTexture {
   });
 }
 
-export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
+export function buildMCRig3D(opts: { powerEyes?: boolean; powerColor?: string } = {}): AnimeRig3D {
   const root = new THREE.Group();
   root.name = "MCRig3D";
+  const powerHex = opts.powerColor ?? "#38d8ff";
+  const pTint = new THREE.Color(powerHex);
+  const pRimLight = pTint.clone().lerp(new THREE.Color("#ffffff"), 0.45).getStyle();
+  const pRimHair = pTint.clone().lerp(new THREE.Color("#ffffff"), 0.22).getStyle();
+  const pLens = pTint.clone().lerp(new THREE.Color("#ffffff"), 0.58).getStyle();
 
   const skinMat = makeAnimeMat({
     color: "#f2c9a2",
@@ -301,27 +310,27 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     specStrength: 0.08,
   });
   const faceTextures: Record<MCExpr3D, THREE.CanvasTexture> = {
-    normal: makeMCFaceTex("normal"),
-    hakai: makeMCFaceTex("hakai"),
-    shock: makeMCFaceTex("shock"),
-    pain: makeMCFaceTex("pain"),
-    blink: makeMCFaceTex("blink"),
-    shout: makeMCFaceTex("shout"),
+    normal: makeMCFaceTex("normal", powerHex),
+    power: makeMCFaceTex("power", powerHex),
+    shock: makeMCFaceTex("shock", powerHex),
+    pain: makeMCFaceTex("pain", powerHex),
+    blink: makeMCFaceTex("blink", powerHex),
+    shout: makeMCFaceTex("shout", powerHex),
   };
   const faceMat = makeAnimeMat({
     color: "#ffffff",
-    map: faceTextures[opts.hakaiEyes ? "hakai" : "normal"],
+    map: faceTextures[opts.powerEyes ? "power" : "normal"],
     shadowColor: "#bd8b72",
-    rimColor: opts.hakaiEyes ? "#ec9eff" : "#ffe4d4",
-    rimStrength: opts.hakaiEyes ? 0.48 : 0.30,
+    rimColor: opts.powerEyes ? pRimLight : "#ffe4d4",
+    rimStrength: opts.powerEyes ? 0.48 : 0.30,
     specStrength: 0.08,
   });
-  // Matte anime charcoal hair (sleek soft violet/indigo rim, NO shiny plastic hotspots!)
+  // Matte anime charcoal hair (sleek soft rim tinted to episode power color, NO shiny plastic hotspots!)
   const hairMat = makeAnimeMat({
     color: "#1b1925",
     shadowColor: "#0c0a12",
-    rimColor: opts.hakaiEyes ? "#cc6eff" : "#6c76a8",
-    rimStrength: opts.hakaiEyes ? 0.54 : 0.34,
+    rimColor: opts.powerEyes ? pRimHair : "#6c76a8",
+    rimStrength: opts.powerEyes ? 0.54 : 0.34,
     specColor: "#8a96c8",
     specStrength: 0.14,
     specSize: 0.93,
@@ -337,7 +346,7 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     metalness: 0.0,
   });
   const glassLensMat = makeAnimeMat({
-    color: opts.hakaiEyes ? "#dca8ff" : "#c6ebff",
+    color: opts.powerEyes ? pLens : "#c6ebff",
     shadowColor: "#687a99",
     rimColor: "#ffffff",
     rimStrength: 0.45,
@@ -351,21 +360,21 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     color: "#ffffff",
     map: makeMCHoodieTex(),
     shadowColor: "#585b74",
-    rimColor: opts.hakaiEyes ? "#df90ff" : "#9aa8cc",
-    rimStrength: opts.hakaiEyes ? 0.46 : 0.26,
+    rimColor: opts.powerEyes ? pRimLight : "#9aa8cc",
+    rimStrength: opts.powerEyes ? 0.46 : 0.26,
     specStrength: 0.04,
   });
   const hoodieMat = makeAnimeMat({
     color: "#252834",
     shadowColor: "#12131e",
-    rimColor: opts.hakaiEyes ? "#df90ff" : "#8896ba",
-    rimStrength: opts.hakaiEyes ? 0.48 : 0.26,
+    rimColor: opts.powerEyes ? pRimLight : "#8896ba",
+    rimStrength: opts.powerEyes ? 0.48 : 0.26,
     specStrength: 0.04,
   });
   const pantsMat = makeAnimeMat({
     color: "#1c1f2a",
     shadowColor: "#0d0f17",
-    rimColor: opts.hakaiEyes ? "#c878ff" : "#707e9e",
+    rimColor: opts.powerEyes ? pRimHair : "#707e9e",
     rimStrength: 0.26,
     specStrength: 0.04,
   });
@@ -699,7 +708,7 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       handR.setGesture("relaxed");
       thighL.rotation.set(-0.04, -0.1, 0.06);
       thighR.rotation.set(0.06, 0.1, -0.06);
-    } else if (pose === "hakai_aura") {
+    } else if (pose === "power_aura") {
       hips.position.set(0, 0.91, 0);
       spine.rotation.set(0.06, 0, 0);
       chest.rotation.set(-0.08 + br, 0, 0);
@@ -716,7 +725,7 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       thighR.rotation.set(-0.14, 0.16, -0.16);
       kneeR.rotation.set(0.24, 0, 0);
       ankleR.rotation.set(-0.10, 0, 0.14);
-    } else if (pose === "pebble_shock") {
+    } else if (pose === "shock_recoil") {
       spine.rotation.set(-0.12, 0, 0);
       head.rotation.set(-0.08, 0, 0.05);
       shoulderL.rotation.set(-0.95, -0.22, 0.55);
@@ -735,8 +744,8 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
 
   const setExpr = (rawExpr: MCExpr3D | string, t = -1) => {
     let expr: MCExpr3D =
-      rawExpr === "hakai" || rawExpr === "intense" || rawExpr === "snarl"
-        ? "hakai"
+      rawExpr === "power" || rawExpr === "intense" || rawExpr === "snarl"
+        ? "power"
         : rawExpr === "shock"
         ? "shock"
         : rawExpr === "pain"
@@ -751,15 +760,15 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       expr = "blink";
     }
     faceMat.uniforms.uMap.value = faceTextures[expr];
-    const glow = expr === "hakai" || expr === "pain" || expr === "shout";
-    faceMat.uniforms.uRimColor.value.set(glow ? "#ec9eff" : "#ffe4d4");
+    const glow = expr === "power" || expr === "pain" || expr === "shout";
+    faceMat.uniforms.uRimColor.value.set(glow ? pRimLight : "#ffe4d4");
     faceMat.uniforms.uRimStrength.value = glow ? 0.52 : 0.30;
-    hairMat.uniforms.uRimColor.value.set(glow ? "#d47aff" : "#6c76a8");
-    hoodieMat.uniforms.uRimColor.value.set(glow ? "#df90ff" : "#8896ba");
-    hoodieTorsoMat.uniforms.uRimColor.value.set(glow ? "#df90ff" : "#9aa8cc");
+    hairMat.uniforms.uRimColor.value.set(glow ? pRimHair : "#6c76a8");
+    hoodieMat.uniforms.uRimColor.value.set(glow ? pRimLight : "#8896ba");
+    hoodieTorsoMat.uniforms.uRimColor.value.set(glow ? pRimLight : "#9aa8cc");
   };
 
-  /** Full Continuous 3D Bone Animation Library for Every Shot in BeerusShort! */
+  /** Universal Continuous 3D Bone Animation Library for Voidmetric What-If Episodes! */
   const setAction = (action: string, p: number, t: number) => {
     const all = [
       hips, spine, chest, neck, head,
@@ -772,9 +781,9 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     const br = Math.sin(t * 2.8) * 0.024;
     const sway = Math.sin(t * 1.6) * 0.035;
 
-    if (action === "kitchen_wake_tap") {
-      // p=0..0.38: stares at glowing orb above left palm; p=0.38..0.56: reaches right hand to mug & TAPS; p=0.56..1: pulls back in awe!
-      setExpr(p > 0.14 ? "hakai" : "normal");
+    if (action === "wake_discover") {
+      // p=0..0.38: stares at glowing power above left palm; p=0.38..0.56: reaches right hand to test; p=0.56..1: pulls back in awe!
+      setExpr(p > 0.14 ? "power" : "normal", t);
       const reach = smStep(0.32, 0.48, p) * (1 - smStep(0.58, 0.78, p));
       const tapSnap = smStep(0.47, 0.51, p) * (1 - smStep(0.51, 0.56, p));
       const awe = smStep(0.58, 0.76, p);
@@ -784,13 +793,11 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       chest.rotation.set(br + reach * 0.08, lerp(-0.10, 0.18, reach), 0);
       head.rotation.set(lerp(0.14, 0.28, reach) - awe * 0.12, lerp(0.24, -0.24, reach) + Math.sin(t * 1.9) * 0.04, lerp(0.05, -0.04, reach));
 
-      // Left arm cradles glowing Hakai orb -> lowers slightly as mug dissolves
       shoulderL.rotation.set(lerp(-0.72, -0.35, awe) + br, 0.12, lerp(0.46, 0.26, awe));
       elbowL.rotation.set(lerp(-1.02, -0.68, awe), 0.12, 0.22);
       wristL.rotation.set(-0.40, 0.32, -0.52);
       handL.setGesture("open");
 
-      // Right arm reaches forward & snaps index finger onto coffee mug -> pulls back startled!
       shoulderR.rotation.set(lerp(0.16, -0.96, reach) - awe * 0.24, lerp(0.12, -0.18, reach), lerp(-0.24, -0.12, reach) - awe * 0.16);
       elbowR.rotation.set(lerp(-0.52, -0.32, reach) - tapSnap * 0.24 - awe * 0.48, 0, lerp(0.28, 0.05, reach));
       wristR.rotation.set(tapSnap * 0.42, 0, 0);
@@ -800,9 +807,9 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       kneeL.rotation.set(0.06 + reach * 0.12, 0, 0);
       thighR.rotation.set(0.06 + reach * 0.08, 0.10, -0.06);
       kneeR.rotation.set(0.04 + reach * 0.10, 0, 0);
-    } else if (action === "kitchen_sparks_awe") {
-      // Looks up watching purple sparks fade to zero, gentle amazed weight shift!
-      setExpr("hakai");
+    } else if (action === "power_awe") {
+      // Looks up watching energy sparks/phenomenon, gentle amazed weight shift!
+      setExpr("power", t);
       hips.position.y = 0.94 + Math.sin(t * 2.2) * 0.008;
       spine.rotation.set(-0.08 + br * 0.6, Math.sin(t * 1.1) * 0.12, sway * 0.5);
       chest.rotation.set(-0.06 + br, Math.cos(t * 0.9) * 0.08, 0);
@@ -816,9 +823,9 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       handR.setGesture("open");
       thighL.rotation.set(-0.04, -0.08, 0.06);
       thighR.rotation.set(0.04, 0.08, -0.06);
-    } else if (action === "alley_wall_slice") {
-      // Steps in, swings right hand sharply to TAP/SLICE the brick wall, recoils slightly from the razor blast!
-      setExpr("hakai");
+    } else if (action === "power_slash") {
+      // Steps in, swings right hand sharply to strike/slice target, recoils slightly!
+      setExpr("power", t);
       const prep = smStep(0.0, 0.24, p);
       const strike = smStep(0.24, 0.34, p);
       const recoil = smStep(0.34, 0.55, p);
@@ -828,7 +835,6 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       chest.rotation.set(br, lerp(-0.18, 0.26, strike), 0);
       head.rotation.set(0.02 - recoil * 0.06, lerp(0.18, -0.34, strike), 0);
 
-      // Right arm cocks back -> snaps forward holding slice gesture cleanly through the plasma beam!
       const holdSlice = smStep(0.22, 0.34, p) * (1 - smStep(0.70, 0.95, p));
       shoulderR.rotation.set(lerp(0.15, -1.32, holdSlice), lerp(0.22, -0.45, holdSlice), lerp(-0.32, -0.48, holdSlice));
       elbowR.rotation.set(lerp(-0.95, -0.14, holdSlice), 0, 0.12);
@@ -843,15 +849,14 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       kneeL.rotation.set(0.22 * prep, 0, 0);
       thighR.rotation.set(0.14 * prep, 0.14, -0.12);
       kneeR.rotation.set(0.16 * prep, 0, 0);
-    } else if (action === "alley_aura_power") {
-      // Explosive Dragon Ball Destroyer power-up stance! Fists pump outward, head tracks vaporizing bullets!
-      setExpr("hakai");
+    } else if (action === "aura_surge") {
+      // Explosive anime power-up stance! Fists pump outward, head tracks threats!
+      setExpr("power", t);
       const surge = smStep(0.0, 0.24, p);
       const vib = Math.sin(t * 24) * 0.012;
       hips.position.y = 0.90 - surge * 0.03 + Math.sin(t * 6) * 0.008;
       spine.rotation.set(0.08 + vib, Math.sin(t * 2.6) * 0.10, 0);
       chest.rotation.set(-0.12 * surge + br * 1.4, Math.sin(t * 2.6) * 0.08, 0);
-      // Tracks incoming bullets left -> right -> left -> right!
       head.rotation.set(0.12 - surge * 0.04, Math.sin(t * 3.4) * 0.26, Math.cos(t * 2.2) * 0.05);
 
       const armFlare = 0.42 + surge * 0.28 + Math.sin(t * 7) * 0.04;
@@ -868,16 +873,15 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       thighR.rotation.set(-0.18, 0.18, -0.18);
       kneeR.rotation.set(0.32, 0, 0);
       ankleR.rotation.set(-0.14, 0, 0.16);
-    } else if (action === "street_pebble_boom") {
-      // p=0..0.52: crouches & taps pebble; p=0.52..1: VIOLENT SHOCKWAVE RECOIL shielding face!
+    } else if (action === "blast_recoil") {
+      // p=0..0.52: crouches & triggers power; p=0.52..1: violent shockwave recoil shielding face!
       const boom = smStep(0.54, 0.66, p);
-      setExpr(boom > 0.3 ? "shock" : "hakai");
+      setExpr(boom > 0.3 ? "shock" : "power", t);
       hips.position.y = lerp(0.88, 0.92, boom) + Math.sin(t * 16) * 0.01 * boom;
       spine.rotation.set(lerp(0.24, -0.22, boom), lerp(0.12, -0.18, boom), 0);
       chest.rotation.set(lerp(0.16, -0.14, boom), lerp(0.08, -0.16, boom), 0);
       head.rotation.set(lerp(0.32, -0.18, boom), lerp(-0.10, 0.24, boom), boom * 0.08);
 
-      // Throws both arms up defensively to shield face from massive shockwave wind!
       shoulderL.rotation.set(lerp(0.10, -1.45, boom), lerp(0, -0.42, boom), lerp(0.28, 0.35, boom));
       elbowL.rotation.set(lerp(-0.45, -1.42, boom), 0, lerp(0, -0.35, boom));
       handL.setGesture("open");
@@ -889,9 +893,9 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       kneeL.rotation.set(lerp(0.48, 0.32, boom), 0, 0);
       thighR.rotation.set(lerp(-0.16, 0.12, boom), 0.14, -0.14);
       kneeR.rotation.set(lerp(0.28, 0.22, boom), 0, 0);
-    } else if (action === "street_pebble_shock") {
-      // Stares down at trembling hand in sheer disbelief ("Wait, why did a pebble do that?")
-      setExpr("shock");
+    } else if (action === "hand_shock") {
+      // Stares down at trembling hand in sheer disbelief!
+      setExpr("shock", t);
       const shake = Math.sin(t * 18) * 0.016;
       hips.position.y = 0.93 + Math.sin(t * 3.5) * 0.01;
       spine.rotation.set(-0.08 + br, Math.sin(t * 1.4) * 0.08, 0);
@@ -906,9 +910,9 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       kneeL.rotation.set(0.16, 0, 0);
       thighR.rotation.set(0.08, 0.10, -0.10);
       kneeR.rotation.set(0.12, 0, 0);
-    } else if (action === "void_hand_burn") {
-      // Panic & guilt backlash! Clutches burning right wrist with left hand, recoiling & thrashing!
-      setExpr("pain");
+    } else if (action === "power_backlash") {
+      // Power overload / backlash agony! Clutches burning right wrist with left hand, recoiling!
+      setExpr("pain", t);
       const throb = Math.sin(t * 22) * 0.025;
       const recoil = smStep(0.15, 0.75, p);
       hips.position.y = 0.92 - recoil * 0.04;
@@ -916,13 +920,11 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       chest.rotation.set(0.12 - recoil * 0.10, -0.16, 0);
       head.rotation.set(0.16 - recoil * 0.22 + throb, 0.28 + Math.sin(t * 4.5) * 0.12, -0.12);
 
-      // Right arm held out trembling in agony while purple fire eats back up it!
       shoulderR.rotation.set(-0.85 + throb * 1.5, -0.32, -0.26);
       elbowR.rotation.set(-1.05 + throb * 2.0, 0.15, 0.35);
       wristR.rotation.set(-0.35, 0, 0.25);
-      handR.setGesture("hakai_palm");
+      handR.setGesture("power_palm");
 
-      // Left arm reaches across chest grabbing right forearm!
       shoulderL.rotation.set(-0.92, 0.48, 0.18);
       elbowL.rotation.set(-1.18, 0.22, -0.45);
       handL.setGesture("fist");
@@ -931,11 +933,11 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
       kneeL.rotation.set(0.28, 0, 0);
       thighR.rotation.set(0.14, 0.12, -0.14);
       kneeR.rotation.set(0.22, 0, 0);
-    } else if (action === "bedroom_sleep_slip") {
-      // Half-asleep nodding -> sudden involuntary finger slip downward onto floor -> jolts awake in horror!
+    } else if (action === "midnight_slip") {
+      // Half-asleep nodding -> sudden involuntary finger slip downward -> jolts awake in horror!
       const slip = smStep(0.45, 0.68, p);
       const jolt = smStep(0.68, 0.88, p);
-      setExpr(jolt > 0.2 ? "shock" : "hakai");
+      setExpr(jolt > 0.2 ? "shock" : "power", t);
       hips.position.y = 0.92 - slip * 0.04 + jolt * 0.03;
       spine.rotation.set(0.14 + slip * 0.10 - jolt * 0.18, -0.12 + jolt * 0.14, 0.06 - jolt * 0.08);
       head.rotation.set(0.30 - jolt * 0.38, -0.12 + jolt * 0.22, 0.10 - jolt * 0.12);

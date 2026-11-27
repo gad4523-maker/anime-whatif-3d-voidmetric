@@ -99,17 +99,33 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
         remotion_root / "public" / "fonts" / "Montserrat-Black.ttf",
     )
 
-    # Locked Voidmetric 3D Anime Rig core + permanent Channel MC rig + compilable guest rig starter
-    copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_core.ts", src_dir / "rig3d_core.ts")
-    copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_mc.ts", src_dir / "rig3d_mc.ts")
-    copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_guest_template.ts", src_dir / "rig3d_guest.ts")
+    # Locked Voidmetric v3.0 3D Anime Rig core, Motion/Physics, Weapons/Props, Channel MC & Guest starter
+    for rig_file, dst_name in [
+        ("rig3d_core.ts", "rig3d_core.ts"),
+        ("rig3d_mc.ts", "rig3d_mc.ts"),
+        ("rig3d_guest_template.ts", "rig3d_guest.ts"),
+        ("anim3d_core.ts", "anim3d_core.ts"),
+        ("props3d_core.ts", "props3d_core.ts"),
+    ]:
+        copy_if_missing(TEMPLATES_DIR / "rigs3d" / rig_file, src_dir / dst_name)
 
-    # 3D GLSL VFX starter + locked clean floating subtitles + compilable world/story/cast/lights/LookCheck3D starters
+    # Universal 9-engine 3D GLSL VFX + Sakuga FX + Cinematic Camera + Cel World Builder + Subtitles + LookCheck
     copy_if_missing(TEMPLATES_DIR / "vfx" / "vfx3d_core.ts", src_dir / "vfx3d.ts")
-    for comp_file in ["Subtitles.tsx", "LookCheck3D.tsx", "lights.ts", "story.ts", "cast.ts", "world.ts", "subtitles_data.ts"]:
+    for comp_file in [
+        "Subtitles.tsx",
+        "LookCheck3D.tsx",
+        "sakuga_fx.tsx",
+        "cam3d_core.ts",
+        "env3d_core.ts",
+        "lights.ts",
+        "story.ts",
+        "cast.ts",
+        "world.ts",
+        "subtitles_data.ts",
+    ]:
         copy_if_missing(TEMPLATES_DIR / "composition" / comp_file, src_dir / comp_file)
 
-    # Instantiate EpisodeShort.tsx & Stage 4 CastSheet3D.tsx with profile MSAA (0 on cloud CPU swangle, 4 on GPU PC)
+    # Instantiate EpisodeShort.tsx & Stage 4 CastSheet3D.tsx with profile MSAA (2 on cloud CPU swangle, 4 on GPU PC)
     for tpl_name, out_name in [("ShortTemplate.tsx", "EpisodeShort.tsx"), ("CastSheet3D.tsx", "CastSheet3D.tsx")]:
         dst = src_dir / out_name
         if not dst.exists() or args.force:
@@ -117,9 +133,10 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             dst.write_text(txt.replace("{{MSAA_SAMPLES}}", msaa), encoding="utf-8")
             copied_files.append(str(dst))
 
-    # Audio master mix template + BS.1770-4 DSP core
+    # Universal data-driven Audio master mix engine + BS.1770-4 DSP core + starter audio_cues.json
     copy_if_missing(TEMPLATES_DIR / "audio" / "mix_template.py", proj_dir / "audio" / "mix_episode.py")
     copy_if_missing(TEMPLATES_DIR / "audio" / "dsp.py", proj_dir / "audio" / "dsp.py")
+    copy_if_missing(TEMPLATES_DIR / "audio" / "audio_cues_template.json", proj_dir / "audio" / "audio_cues.json")
 
     # Ensure shared bridge post-processing + cardshade exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
@@ -960,7 +977,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rc = sub.add_parser("render-cloud", help="OOM-proof resumable chunked 1080p CPU render + FFmpeg concat/mux for Gemini Tasks")
     p_rc.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
     p_rc.add_argument("--composition", default="EpisodeShort1080", help="Remotion composition id (default EpisodeShort1080)")
-    p_rc.add_argument("--total-frames", type=int, required=True, help="Total frames to render (e.g. 1930)")
+    p_rc.add_argument("--total-frames", type=int, required=True, help="Total frames to render (e.g. 1800)")
     p_rc.add_argument("--chunk-frames", type=int, default=300, help="Frames per resumable chunk (default 300 = 10s)")
     p_rc.add_argument("--audio", default="", help="Optional path to mastered mix.wav to mux into final MP4")
     p_rc.add_argument("--out-video", required=True, help="Destination final MP4 path")

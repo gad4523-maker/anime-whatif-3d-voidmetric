@@ -1,20 +1,22 @@
-// AAA 3D Anime Character Rig Core Engine (Dragon Ball FighterZ / Sparking! ZERO Style)
+// AAA 3D Anime Character Rig Core Engine (Studio Cel-Shaded 3D Pipeline)
 // Provides:
 //   1. Custom GLSL 3-Band Anime Cel Shader (`makeAnimeMat`):
 //      - Hard anime terminator with cool violet-shifted chromatic shadow (never muddy grey!)
 //      - Secondary deep AO / bounce floor fill
 //      - Anisotropic/crisp specular highlight band (skin sheen, hair halo, metallic gold!)
-//      - View-dependent Fresnel anime rim light (tints purple under Hakai or cyan on Whis!)
+//      - View-dependent Fresnel anime rim light (color-tintable for ANY anime power aura!)
 //      - Supports Canvas2D / high-res painted albedo + inner-line (IL) detail maps + HDR emissive boost!
 //   2. Inverted-Hull 3D Anime Ink Outline Mesh (`addInkHull`):
 //      - Smooth-normal back-face extrusion giving crisp dark-plum `#14091e` anime lineart at every 3D angle!
 //   3. Anatomical Sculpting Geometry Kit:
-//      - `loftRings`: Watertight multi-ring cross-sectional contour lofter (heads, muzzles, torsos, limbs, pleated pants, boots, ears)
-//      - `sculptCurveTube`: Curved tapered 3D tube along CatmullRom spline with optional star/fluted cross-section (anime hair locks, Whis swirl hair, Beerus tail!)
-//      - `makeHand3D`: Articulated 5-finger 3D hand with opposable thumb + optional black Destroyer claws!
-//   4. Hierarchical Articulated 3D Skeleton Rig (`JointMap` + `buildRigOverlay`):
-//      - Real nested joint `THREE.Group` hierarchy for smooth 3D FK posing & animation
-//      - Glowing X-ray bone/joint visualizer to inspect the actual underlying 3D rig skeleton!
+//      - `loftRings`: Watertight multi-ring cross-sectional contour lofter (heads, torsos, limbs, pleated pants, boots, ears)
+//      - `sculptCurveTube`: Curved tapered 3D tube along CatmullRom spline with optional star/fluted cross-section (multi-lock hair, capes, tails!)
+//      - `buildHand3D`: Articulated 5-finger 3D hand with opposable thumb + optional claws & 9 expressive anime hand gestures!
+//   4. Studio 3D Anime Head, Archetypes, Eye-Gaze & Live Expression Engine:
+//      - `buildAnimeHead3D`: 14-ring shield-head (`shonen_male`, `female_anime`, `muscular_boss`, `chibi_kid`) + 3D nose + 3D ears + planar front UVs
+//      - `createAnimeFaceController`: 10 live expressions + deterministic eye-blink + lip-flap + live iris `setGaze(gx, gy)`!
+//   5. Hierarchical Articulated 3D Skeleton Rig (`RigJoints` + `attachBoneVisualizer`):
+//      - Real nested joint `THREE.Group` hierarchy for smooth 3D FK posing & animation + X-ray skeleton inspector!
 import * as THREE from "three";
 import { NOINK } from "../bridge/ink";
 
@@ -407,8 +409,8 @@ export function loftRings(
 
 /**
  * Curved Tapered 3D Sculpted Tube along a 3D spline!
- * Ideal for: Anime spiky hair locks (diamond/ribbon cross-section tapering to razor point!),
- * Whis's tall fluted swirl hair, Beerus's long S-curving tail, and sculpted draped sashes!
+ * Ideal for: Anime multi-lock hair (diamond/ribbon cross-section tapering to razor point!),
+ * fluted swirl hairstyles, S-curving tails, capes, and sculpted draped sashes!
  */
 export function sculptCurveTube(
   points: [number, number, number][],
@@ -416,7 +418,7 @@ export function sculptCurveTube(
   opts: {
     tubularSegs?: number;
     radialSegs?: number;
-    flutes?: number; // e.g., 14 flutes for Whis's carved hair strands!
+    flutes?: number; // e.g., 14 flutes for carved ribbed hair strands or energy coils!
     fluteDepth?: number;
     ridgeSharpness?: number; // makes crisp anime hair diamond ridge cross-section!
     capStart?: boolean;
@@ -532,12 +534,23 @@ export function sculptLimbGeo(
 }
 
 // =========================================================================
-// ARTICULATED 5-FINGER 3D ANIME HAND (+ OPTIONAL BLACK CLAWS!)
+// ARTICULATED 5-FINGER 3D ANIME HAND (+ OPTIONAL CLAWS & 9 GESTURES!)
 // =========================================================================
+export type HandGesture3D =
+  | "open"
+  | "fist"
+  | "point_up"
+  | "power_palm"
+  | "relaxed"
+  | "grip_staff"
+  | "grip_blade"
+  | "finger_gun"
+  | "peace";
+
 export type Hand3D = {
   root: THREE.Group;
   fingers: THREE.Group[][]; // [finger 0..4 (thumb, index, mid, ring, pinky)][phalanx 0..1]
-  setGesture: (gesture: "open" | "fist" | "point_up" | "hakai_palm" | "relaxed" | "grip_staff") => void;
+  setGesture: (gesture: HandGesture3D) => void;
 };
 
 export function buildHand3D(
@@ -629,22 +642,39 @@ export function buildHand3D(
         f[0].rotation.set(1.42, 0, 0);
         f[1].rotation.set(1.48, 0, 0);
       }
-    } else if (g === "grip_staff") {
+    } else if (g === "grip_staff" || g === "grip_blade") {
       th[0].rotation.set(0.55, 0, side * 0.25); th[1].rotation.set(0.65, 0, 0);
       for (const f of [idx, mid, rng, pnk]) {
-        f[0].rotation.set(1.18, 0, 0);
-        f[1].rotation.set(1.22, 0, 0);
+        f[0].rotation.set(g === "grip_blade" ? 1.28 : 1.18, 0, 0);
+        f[1].rotation.set(g === "grip_blade" ? 1.32 : 1.22, 0, 0);
       }
     } else if (g === "point_up") {
-      // Iconic Beerus index-finger Hakai orb pose! Index extended straight, other fingers curled!
+      // Iconic shonen index-finger point / energy focus gesture! Index extended straight, others curled!
       th[0].rotation.set(0.62, 0, side * 0.22); th[1].rotation.set(0.65, 0, 0);
       idx[0].rotation.set(-0.08, 0, -side * 0.04); idx[1].rotation.set(-0.05, 0, 0);
       for (const f of [mid, rng, pnk]) {
         f[0].rotation.set(1.45, 0, 0);
         f[1].rotation.set(1.45, 0, 0);
       }
-    } else if (g === "hakai_palm") {
-      // Iconic wide-splayed Destroyer Hakai palm facing camera (`refs/beerus_hakai_palm.jpg`)!
+    } else if (g === "finger_gun") {
+      // Anime finger-gun / twin-finger focus (thumb up + index extended!)
+      th[0].rotation.set(-0.08, 0, -side * 0.65); th[1].rotation.set(0.05, 0, 0);
+      idx[0].rotation.set(-0.06, 0, -side * 0.04); idx[1].rotation.set(-0.04, 0, 0);
+      for (const f of [mid, rng, pnk]) {
+        f[0].rotation.set(1.48, 0, 0);
+        f[1].rotation.set(1.48, 0, 0);
+      }
+    } else if (g === "peace") {
+      // Two-finger domain sign / V-sign (index + middle extended, ring + pinky curled!)
+      th[0].rotation.set(0.68, 0, side * 0.28); th[1].rotation.set(0.72, 0, 0);
+      idx[0].rotation.set(-0.06, 0, -side * 0.16); idx[1].rotation.set(-0.04, 0, 0);
+      mid[0].rotation.set(-0.06, 0, side * 0.12); mid[1].rotation.set(-0.04, 0, 0);
+      for (const f of [rng, pnk]) {
+        f[0].rotation.set(1.46, 0, 0);
+        f[1].rotation.set(1.46, 0, 0);
+      }
+    } else if (g === "power_palm") {
+      // Wide-splayed dramatic anime palm-blast / energy thrust facing camera!
       th[0].rotation.set(0.18, 0, -side * 0.72); th[1].rotation.set(0.16, 0, 0);
       idx[0].rotation.set(0.18, 0, -side * 0.22); idx[1].rotation.set(0.24, 0, 0);
       mid[0].rotation.set(0.15, 0, -side * 0.03); mid[1].rotation.set(0.22, 0, 0);
@@ -710,6 +740,8 @@ export interface AnimeRig3D {
   setAction?: (action: string, p: number, t: number) => void;
   /** Swap live facial expression mid-shot (with deterministic natural eye-blinking & optional lip-flap!) */
   setExpr?: (expr: AnimeExpr | string, t?: number, talk?: boolean) => void;
+  /** Shift live iris gaze direction (`gx` -1..1 left/right, `gy` -1..1 down/up) so characters glance at objects/enemies! */
+  setGaze?: (gx: number, gy: number) => void;
   setXRayRig: (on: boolean) => void;
   getBoneCount: () => number;
 }
@@ -763,7 +795,7 @@ export function attachBoneVisualizer(joints: RigJoints): {
     [joints.kneeR, joints.ankleR],
   ];
 
-  // Add extra bone chains (Beerus tail, ears, etc.)
+  // Add extra bone chains (tails, capes, wings, ears, etc.)
   if (joints.extra) {
     for (const grp of Object.values(joints.extra)) {
       if (grp.parent && grp.parent instanceof THREE.Group) {
@@ -854,16 +886,20 @@ export function makeCanvasTex(w: number, h: number, draw: (ctx: CanvasRenderingC
 //   - Distortion-free planar front-face UV projection (76% of 1024px width maps flat onto front face!)
 //   - Real 3D sculpted anime nose (sharp in 3/4 & side profile!) + real 3D sculpted anime ears
 // =========================================================================
+export type AnimeHeadArchetype = "shonen_male" | "female_anime" | "muscular_boss" | "chibi_kid";
+
 export type AnimeHeadOpts = {
+  /** Character head archetype preset (tunes jaw sharpness, cheek softness, nose delicacy & width automatically!) */
+  archetype?: AnimeHeadArchetype;
   /** Overall scale multiplier (default 1.0 -> ~0.255m tall shonen head) */
   scale?: number;
-  /** Width multiplier (default 1.0; use 0.92 for slender sharp characters like Senku/Gojo, 1.05 for broader builds) */
+  /** Width multiplier (default auto from archetype; e.g. 0.91 slender, 1.06 broad) */
   widthScale?: number;
-  /** Pointed chin sharpness 0.7..1.3 (default 1.05 = crisp shonen V-chin) */
+  /** Pointed chin sharpness 0.7..1.3 (default auto from archetype) */
   jawSharpness?: number;
-  /** 3D nose protrusion scale (default 1.0) */
+  /** 3D nose protrusion scale (default auto from archetype) */
   noseScale?: number;
-  /** 3D ear scale (default 1.0; set 0 to sculpt custom non-human ears like Beerus!) */
+  /** 3D ear scale (default 1.0; set 0 to sculpt custom non-human ears!) */
   earScale?: number;
   /** Outline thickness (default 0.0042) */
   outline?: number;
@@ -894,7 +930,9 @@ export type AnimeFaceOpts = {
   blink?: boolean;
   /** Optional talking/shouting lip-flap state: 0 = expression default, 1 = half-open syllable, 2 = wide-open syllable */
   mouthOpen?: 0 | 1 | 2;
-  eyeShape?: "sharp_shonen" | "wide_hero" | "narrow_cool";
+  /** Optional live iris look direction: `[gx, gy]` in `[-1..1, -1..1]` (`+gx` looks character-left / viewer-right, `+gy` looks up!) */
+  gaze?: [number, number];
+  eyeShape?: "sharp_shonen" | "wide_hero" | "narrow_cool" | "soft_female";
   eyeScale?: number;
   /** Optional character-specific overlay (e.g. Senku's stone cracks, Sukuna's markings, Gojo's Six Eyes, Luffy's scar!) */
   customDraw?: (ctx: CanvasRenderingContext2D, w: number, h: number, layout: AnimeFaceLayout) => void;
@@ -916,6 +954,7 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
   const expr: AnimeExpr = opts.expr ?? "smirk";
   const blink = opts.blink ?? false;
   const mouthOpen = opts.mouthOpen ?? 0;
+  const [gazeX, gazeY] = opts.gaze ?? [0, 0];
   const eyeShape = opts.eyeShape ?? "sharp_shonen";
   const eScale = opts.eyeScale ?? 1.0;
 
@@ -927,8 +966,8 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
     const cx = w * 0.5;
     const eyeY = h * 0.565;
     const eyeDx = w * 0.168;
-    const eyeW = 122 * eScale;
-    const eyeH = (eyeShape === "wide_hero" ? 104 : eyeShape === "narrow_cool" ? 72 : 90) * eScale;
+    const eyeW = (eyeShape === "soft_female" ? 128 : 122) * eScale;
+    const eyeH = (eyeShape === "wide_hero" || eyeShape === "soft_female" ? 106 : eyeShape === "narrow_cool" ? 72 : 90) * eScale;
     const noseY = h * 0.705;
     const mouthY = h * 0.815;
 
@@ -1040,9 +1079,11 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
         ctx.fillStyle = "rgba(128, 120, 162, 0.34)";
         ctx.fillRect(-eyeW, -hh * 0.75, eyeW * 2, hh * 0.42 + topDrop * 0.4);
 
-        // Iris center slightly inward & vertical oval like modern anime (Dr. STONE / JJK / DBFZ)
-        const ix = -eyeW * 0.03;
-        const iy = hh * 0.04 + topDrop * 0.25;
+        // Iris center + live eye-gaze offset (`gazeX` shifts both eyes horizontally in world space, `gazeY` shifts vertically!)
+        const gxClamped = Math.max(-1, Math.min(1, gazeX));
+        const gyClamped = Math.max(-1, Math.min(1, gazeY));
+        const ix = -eyeW * 0.03 + s * gxClamped * eyeW * 0.30;
+        const iy = hh * 0.04 + topDrop * 0.25 - gyClamped * hh * 0.24;
         const irx = (shock ? 28 : expr === "snarl" ? 42 : 48) * eScale;
         const iry = (shock ? 31 : expr === "snarl" ? 48 : 54) * eScale;
 
@@ -1281,15 +1322,17 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
 export type AnimeFaceController = {
   /** Initial face texture to pass into `makeAnimeMat({ map: faceCtrl.initialTex, isFace: true })` */
   initialTex: THREE.CanvasTexture;
-  /** Bind the face ShaderMaterial so `setExpr()` swaps textures with zero overhead! */
+  /** Bind the face ShaderMaterial so `setExpr()` / `setGaze()` swap textures with zero overhead! */
   attachMaterial: (mat: THREE.ShaderMaterial) => void;
   /**
    * Switch expression live mid-shot with deterministic natural anime eye-blinking (~every 3.4 s) & optional lip-flap!
-   * Lazy-caches each `(expr, blink, mouthOpen)` texture so startup & per-frame cost stay near zero!
+   * Lazy-caches each `(expr, blink, mouthOpen, gaze)` texture so startup & per-frame cost stay near zero!
    */
   setExpr: (expr: AnimeExpr | string, t?: number, talk?: boolean, autoBlink?: boolean) => void;
+  /** Set live iris look direction (`gx` -1..1 left/right, `gy` -1..1 down/up) — quantized to 0.25 steps for instant cache hits! */
+  setGaze: (gx: number, gy: number) => void;
   /** Retrieve any specific expression texture directly (e.g. for Expression Turnaround Grids!) */
-  getTexture: (expr: AnimeExpr, blink?: boolean, mouthOpen?: 0 | 1 | 2) => THREE.CanvasTexture;
+  getTexture: (expr: AnimeExpr, blink?: boolean, mouthOpen?: 0 | 1 | 2, gaze?: [number, number]) => THREE.CanvasTexture;
 };
 
 const VALID_ANIME_EXPRS = new Set<string>([
@@ -1297,8 +1340,8 @@ const VALID_ANIME_EXPRS = new Set<string>([
 ]);
 
 /**
- * Creates a lazy-cached Live Expression, Auto-Blink & Lip-Flap Controller for ANY `buildAnimeHead3D` character!
- * Preserves character-specific `customDraw` scars/markings automatically across every expression & blink state.
+ * Creates a lazy-cached Live Expression, Eye-Gaze, Auto-Blink & Lip-Flap Controller for ANY `buildAnimeHead3D` character!
+ * Preserves character-specific `customDraw` scars/markings automatically across every expression, gaze & blink state.
  */
 export function createAnimeFaceController(
   baseOpts: Omit<AnimeFaceOpts, "blink" | "mouthOpen"> = {}
@@ -1306,27 +1349,51 @@ export function createAnimeFaceController(
   const cache = new Map<string, THREE.CanvasTexture>();
   let boundMat: THREE.ShaderMaterial | null = null;
   let lastKey = "";
+  let curExpr: AnimeExpr = baseOpts.expr ?? "smirk";
+  let curBlink = false;
+  let curMouth: 0 | 1 | 2 = 0;
+  let curGaze: [number, number] = baseOpts.gaze ? [...baseOpts.gaze] : [0, 0];
 
   const normalizeExpr = (raw: string): AnimeExpr => {
     if (VALID_ANIME_EXPRS.has(raw)) return raw as AnimeExpr;
     if (raw === "normal" || raw === "calm") return "neutral";
-    if (raw === "angry" || raw === "rage" || raw === "hakai") return "intense";
+    if (raw === "angry" || raw === "rage" || raw === "power") return "intense";
     if (raw === "happy" || raw === "laugh") return "grin";
     return baseOpts.expr ?? "smirk";
   };
 
-  const getTexture = (expr: AnimeExpr, blink = false, mouthOpen: 0 | 1 | 2 = 0): THREE.CanvasTexture => {
-    const key = `${expr}|${blink ? 1 : 0}|${mouthOpen}`;
+  const qGaze = (v: number) => Math.round(Math.max(-1, Math.min(1, v)) * 4) / 4;
+
+  const getTexture = (
+    expr: AnimeExpr,
+    blink = false,
+    mouthOpen: 0 | 1 | 2 = 0,
+    gaze: [number, number] = [0, 0]
+  ): THREE.CanvasTexture => {
+    const gx = qGaze(gaze[0]);
+    const gy = qGaze(gaze[1]);
+    const key = `${expr}|${blink ? 1 : 0}|${mouthOpen}|${gx}|${gy}`;
     let tex = cache.get(key);
     if (!tex) {
-      tex = paintAnimeFaceTex({ ...baseOpts, expr, blink, mouthOpen });
+      tex = paintAnimeFaceTex({ ...baseOpts, expr, blink, mouthOpen, gaze: [gx, gy] });
       cache.set(key, tex);
     }
     return tex;
   };
 
-  const initialExpr = baseOpts.expr ?? "smirk";
-  const initialTex = getTexture(initialExpr, false, 0);
+  const applyCurrent = () => {
+    const gx = qGaze(curGaze[0]);
+    const gy = qGaze(curGaze[1]);
+    const key = `${curExpr}|${curBlink ? 1 : 0}|${curMouth}|${gx}|${gy}`;
+    if (key === lastKey) return;
+    lastKey = key;
+    const tex = getTexture(curExpr, curBlink, curMouth, [gx, gy]);
+    if (boundMat && boundMat.uniforms?.uMap) {
+      boundMat.uniforms.uMap.value = tex;
+    }
+  };
+
+  const initialTex = getTexture(curExpr, false, 0, curGaze);
 
   return {
     initialTex,
@@ -1334,9 +1401,12 @@ export function createAnimeFaceController(
       boundMat = mat;
     },
     getTexture,
+    setGaze: (gx, gy) => {
+      curGaze = [qGaze(gx), qGaze(gy)];
+      applyCurrent();
+    },
     setExpr: (rawExpr, t = -1, talk = false, autoBlink = true) => {
       const expr = normalizeExpr(rawExpr);
-      // Natural deterministic 4-frame anime eye blink every ~3.4 s (disabled during shock/pain/smug_closed/shout/snarl!)
       const canBlink =
         autoBlink &&
         t >= 0 &&
@@ -1346,17 +1416,10 @@ export function createAnimeFaceController(
         expr !== "shout" &&
         expr !== "snarl";
       const cycle = t >= 0 ? ((t + 1.15) % 3.4) : 99;
-      const isBlink = canBlink && cycle < 0.13;
-      // Deterministic anime dialogue lip-flap when `talk === true`
-      const mOpen: 0 | 1 | 2 = talk && t >= 0 ? (([0, 1, 2, 1, 2, 0] as const)[Math.floor(t * 9.0) % 6]) : 0;
-
-      const key = `${expr}|${isBlink ? 1 : 0}|${mOpen}`;
-      if (key === lastKey) return;
-      lastKey = key;
-      const tex = getTexture(expr, isBlink, mOpen);
-      if (boundMat && boundMat.uniforms?.uMap) {
-        boundMat.uniforms.uMap.value = tex;
-      }
+      curExpr = expr;
+      curBlink = canBlink && cycle < 0.13;
+      curMouth = talk && t >= 0 ? (([0, 1, 2, 1, 2, 0] as const)[Math.floor(t * 9.0) % 6]) : 0;
+      applyCurrent();
     },
   };
 }
@@ -1369,17 +1432,28 @@ export function createAnimeFaceController(
  *   - Real 3D sculpted anime nose protruding cleanly in 3/4 & side profile!
  *   - Real 3D sculpted anime ears with inner concha recess & ink outline!
  */
+const HEAD_ARCHETYPE_DEFAULTS: Record<
+  AnimeHeadArchetype,
+  { scale: number; widthScale: number; jawSharpness: number; noseScale: number; earScale: number }
+> = {
+  shonen_male: { scale: 1.0, widthScale: 0.96, jawSharpness: 1.05, noseScale: 1.0, earScale: 1.0 },
+  female_anime: { scale: 0.96, widthScale: 0.94, jawSharpness: 1.14, noseScale: 0.72, earScale: 0.90 },
+  muscular_boss: { scale: 1.06, widthScale: 1.08, jawSharpness: 0.80, noseScale: 1.18, earScale: 1.05 },
+  chibi_kid: { scale: 1.16, widthScale: 1.06, jawSharpness: 0.86, noseScale: 0.65, earScale: 0.96 },
+};
+
 export function buildAnimeHead3D(
   parent: THREE.Object3D,
   faceMat: THREE.Material,
   skinMat: THREE.Material,
   opts: AnimeHeadOpts = {}
 ): { group: THREE.Group; headMesh: THREE.Mesh; noseMesh: THREE.Mesh } {
-  const sc = opts.scale ?? 1.0;
-  const ws = opts.widthScale ?? 0.96;
-  const js = opts.jawSharpness ?? 1.05;
-  const ns = opts.noseScale ?? 1.0;
-  const es = opts.earScale ?? 1.0;
+  const arch = HEAD_ARCHETYPE_DEFAULTS[opts.archetype ?? "shonen_male"];
+  const sc = (opts.scale ?? 1.0) * arch.scale;
+  const ws = opts.widthScale ?? arch.widthScale;
+  const js = opts.jawSharpness ?? arch.jawSharpness;
+  const ns = opts.noseScale ?? arch.noseScale;
+  const es = opts.earScale ?? arch.earScale;
   const ow = (opts.outline ?? 0.0042) * sc;
   const inkCol = opts.outlineColor ?? "#160c20";
 
