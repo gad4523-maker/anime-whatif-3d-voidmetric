@@ -94,20 +94,36 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 
 ---
 
-## Workflow (7 Mandatory Stages & Approval Gates)
+## Execution Modes (Select in Prompt or at Stage 1)
 
-### Stage 1 — Topic Intake, Genre Classification, Asset Request & SFX Prompts
-1. Run `whatif_cli.py init-episode` (`--profile cloud-1080p --bootstrap-remotion` in Gemini Tasks; `--profile local-2k` on local GPU PC).
-2. **MANDATORY Genre & Visual-Tone Classification (NEVER mix magic VFX into grounded anime!):**
+Every run operates in one of **3 modes** (default: `MODE: INTERACTIVE` if unspecified):
+
+| Mode | Human Pauses | Autonomous Self-Critique | Best For |
+|---|---|---|---|
+| **`MODE: INTERACTIVE`** *(default)* | **2 Gates:** pauses at **Stage 3** (Lore/Script approval) AND **Stage 4** (Character 3D turnaround approval) | Standard pre-gate inspection | Brand-new episodes while awake with hands-on approval |
+| **`MODE: OVERNIGHT_AUTOPILOT`** *(Sleep Mode)* | **0 pauses** if voiceover + refs are uploaded upfront *(or **1 pause** after Stage 3 ONLY to collect voiceover + refs, then **0 pauses** Stages 4 → 7!)* | **STRICT Autonomous Gate Loops:** runs up to 2 self-critique + fix passes on Stage 4 `CastSheet3D` (`f0..f5`) AND Stage 6 `LookCheck3D` (16 tiles) before zipping! | Overnight / hands-off runs — wake up to the finished `episode_<slug>_pc_bundle.zip` ready for **Voidmetric PC Render Studio**! |
+| **`MODE: FAST_REDO`** | **0 pauses** (reuses user's existing voiceover, script, and/or approved 3D rig) | **STRICT Autonomous Stage 6 Look-Check Loop** before zipping | Re-directing an existing episode with upgraded painted worlds, framing, or zero-VFX fixes |
+
+> [!IMPORTANT]
+> **Autopilot Quality Guarantee:** `MODE: OVERNIGHT_AUTOPILOT` and `MODE: FAST_REDO` NEVER skip visual verification — they replace waiting on human clicks with mandatory agent visual inspection + auto-fix passes, and save `cast_preview.jpg` + `lookcheck_sheet.jpg` alongside `episode_<slug>_pc_bundle.zip` so the user can review everything in the morning before rendering on PC!
+
+---
+
+## Workflow (7 Mandatory Stages & Mode-Aware Gates)
+
+### Stage 1 — Topic Intake, Mode & Genre Classification, Asset Request & SFX Prompts
+1. Confirm the active mode (`MODE: INTERACTIVE`, `MODE: OVERNIGHT_AUTOPILOT`, or `MODE: FAST_REDO`). If the user did not specify a mode, default to `MODE: INTERACTIVE` and mention that they can switch to `MODE: OVERNIGHT_AUTOPILOT` as soon as they drop their voiceover & references.
+2. Run `whatif_cli.py init-episode` (`--profile cloud-1080p --bootstrap-remotion` in Gemini Tasks; `--profile local-2k` on local GPU PC).
+3. **MANDATORY Genre & Visual-Tone Classification (NEVER mix magic VFX into grounded anime!):**
    Classify the character's source anime into ONE of 4 strict visual modes right at Stage 1 and record it in `LORE_FACT_SHEET.md` + `PLAN.md`:
    - **`supernatural_combat`** (*Dragon Ball*, *JJK*, *Bleach*, *Naruto*, *JoJo*, *Solo Leveling*, *Demon Slayer*) — Full 3D GLSL power VFX (`EnergyOrb3D`, `EnergyAura3D`, beams, lightning, bespoke shaders) + Sakuga Impact Frames + cosmic/battlefield arenas.
-   - **`grounded_genius`** (*Dr. STONE*, *Death Note*, *Classroom of the Elite*, *Vinland Saga*, *Blue Lock*, *Monster*, *Haikyu!!*) — **STRICTLY BAN** fantasy energy auras, glowing magic halo rings, levitation (`hover_float`), cosmic purple voids, and Kamehameha/palm-blast poses! Tell the story through **painted realistic sets** (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`), **physical 3D props** (flasks, notebooks, chalkboards, blueprints, tools), **grounded human acting** (`inspect_prop`, `write_board`, `wheeze_knees`, `talk_gesture`, `sit_desk`), and expressive **face close-ups**!
+   - **`grounded_genius`** (*Dr. STONE*, *Death Note*, *Classroom of the Elite*, *Vinland Saga*, *Blue Lock*, *Monster*, *Haikyu!!*) — **STRICTLY BAN** fantasy energy auras, glowing magic halo rings, levitation (`hover_float`), cosmic purple voids, and Kamehameha/palm-blast poses! Tell the story through **painted realistic sets** (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove` or custom painted sets via `makePaintedMat`), **physical 3D props** (flasks, notebooks, chalkboards, blueprints, tools), **grounded human acting** (`inspect_prop`, `write_board`, `wheeze_knees`, `talk_gesture`, `sit_desk`), and expressive **face close-ups**!
    - **`mecha_tech`** (*Cyberpunk*, *Code Geass*, *Gundam*, *Iron Man*) — Crisp tactical HUDs, sparks, metallic machinery, clean engineering light; no fantasy flame auras.
    - **`dark_thriller`** (*Attack on Titan*, *Chainsaw Man*, *Tokyo Ghoul*, *Berserk*) — Gritty moody lighting, physical blade/smoke/blood-splash FX, grounded tense framing.
-3. Ask the user for:
+4. Ask the user for (unless ALREADY uploaded upfront in `MODE: OVERNIGHT_AUTOPILOT` / `MODE: FAST_REDO`):
    - **Reference images** of the guest anime character(s), iconic poses, and signature props/VFX.
    - **Voiceover plan** (user-uploaded **~52–62 s** voiceover `.mp3`/`.wav`, target **150–175 words** — keep tightly around ~60 s!).
-4. Give the user **5 tailored SFX generation prompts** matched strictly to the episode's genre (e.g., chalk scribbling, glassware clinking, heavy panting, heartbeats for `grounded_genius` — NOT sci-fi laser hums!).
+5. Give the user **5 tailored SFX generation prompts** matched strictly to the episode's genre (e.g., chalk scribbling, glassware clinking, heavy panting, heartbeats for `grounded_genius` — NOT sci-fi laser hums!). If the user runs `MODE: OVERNIGHT_AUTOPILOT` without custom SFX files, synthesize clean genre-matched procedural SFX in `mix_episode.py` automatically!
 
 ### Stage 2 — Mandatory Full-Canon Lore & Power Fact-Checker Gate
 > [!CAUTION]
@@ -132,11 +148,16 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - For **`supernatural_combat` / `mecha_tech` / `dark_thriller`**: (a) active glowing 3D power/tech/action VFX in frame 0, (b) MC's sharp-jawline reaction, AND (c) immediate physical consequence.
    - For **`grounded_genius`**: (a) dramatic tight face close-up or dynamic physical prop/environment reveal in frame 0 (e.g., wide-eyed waking realization, chalkboard equation burst, real lab experiment), (b) crisp facial acting, AND (c) immediate real-world consequence — **ZERO glowing magic halos or fake fantasy auras!**
 3. **Adversarial Lore Audit:** Perform an independent line-by-line audit trying to **disprove every factual claim** in `SCRIPT.md` against `LORE_FACT_SHEET.md` and official canon. Fix any inaccuracy and record `PASS` sign-off in `LORE_FACT_SHEET.md`.
-4. Present `LORE_FACT_SHEET.md`, flagged spoilers, `SCRIPT.md`, and the 5 SFX prompts. **Wait for explicit user approval before rigging or audio.**
+4. **Stage 3 Mode Gate:**
+   - In **`MODE: INTERACTIVE`**: Present `LORE_FACT_SHEET.md`, flagged spoilers, `SCRIPT.md`, and the 5 SFX prompts. **STOP and wait for explicit user approval + voiceover.**
+   - In **`MODE: OVERNIGHT_AUTOPILOT`**:
+     - If the user has **NOT** uploaded the voiceover yet: present `SCRIPT.md` + 5 SFX prompts and pause **ONCE** to collect their voiceover (+ reference images / optional SFX). The moment they upload the voiceover, proceed **nonstop through Stages 4 → 5 → 6 → 7 with ZERO further pauses!**
+     - If the user **ALREADY** uploaded the voiceover & references upfront: align `SCRIPT.md` to their actual uploaded voiceover transcript, pass Adversarial Lore Audit, and proceed **immediately nonstop through Stages 4 → 5 → 6 → 7!**
 
-### Stage 4 — 3D Anime Rig Showcase (**MANDATORY HARD STOP — APPROVAL GATE 2**)
+### Stage 4 — 3D Anime Rig Showcase (**HARD STOP IN `INTERACTIVE` | AUTONOMOUS SELF-CRITIQUE IN `OVERNIGHT_AUTOPILOT`**)
 > [!CAUTION]
-> **HARD STOP BEFORE VIDEO CREATION:** You MUST create the 3D character rigs, render visual turnaround + close-up showcase images, and **show the rendered characters directly to the user for visual approval BEFORE building worlds, VFX, scene timelines, or rendering any video.** Never proceed straight from rigging into video production without explicit user approval!
+> - **In `MODE: INTERACTIVE`:** **HARD STOP BEFORE VIDEO CREATION** — You MUST create the 3D character rigs, render visual turnaround + close-up + expression showcase plates (`f0..f5`), and **show them directly to the user for explicit visual approval BEFORE building worlds, VFX, scene timelines, or packaging!**
+> - **In `MODE: OVERNIGHT_AUTOPILOT`:** **DO NOT PAUSE FOR USER INPUT** — Instead, execute a **strict autonomous visual self-critique loop (up to 2 fix iterations)** comparing EVERY rendered `CastSheet3D` plate (`f0..f5`) directly against the user's reference images, fix every proportion/face/hair/outfit/color flaw, re-render to verify, save the final preview image to `projects/<slug>/out/preview_cast_sheet.jpg`, and **proceed immediately to Stage 5!**
 
 1. **Reuse `rig3d_mc.ts` untouched as the recurring Channel MC** (24 bones, razor-sharp anime V-jawline, glasses, spiky hair, black zip jacket/white tee). Only add episode-specific actions/expressions in `setAction`.
 2. **MANDATORY 3D CHARACTER ACCURACY, PROPORTIONS & DETAIL STANDARD:**
@@ -154,7 +175,9 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
      - Tight face & expression close-up render,
      - Full cast height/proportion/style lineup standing next to the locked Channel MC rig.
    - **Mandatory Agent Self-Critique First:** Visually compare your rendered turnaround & face close-up directly against the user's reference images and fix any proportion, face, hair, costume, or color mismatch BEFORE presenting to the user.
-4. **Present the rendered character showcase images to the user and STOP.** Wait for explicit approval (or apply any likeness/proportion/detail fixes requested and re-show) before starting Stages 5–7!
+4. **Stage 4 Exit Gate:**
+   - **In `MODE: INTERACTIVE`:** Present the rendered character showcase images to the user and **STOP**. Wait for explicit approval (or apply any likeness/proportion/detail fixes requested and re-show) before starting Stages 5–7!
+   - **In `MODE: OVERNIGHT_AUTOPILOT`:** After your self-critique pass confirms likeness, proportions, hair, outfit, and all 8 expressions look clean, save the cast turnaround preview and continue **automatically without stopping** into Stages 5 → 6 → 7!
 
 ### Stage 5 — Audio Mastering & Rock-Steady Karaoke Subtitle Sync
 1. Keep the user's uploaded voiceover **100% untouched** — run `whatif_cli.py align-voice --input <uploaded_voice> --wav-out projects/<slug>/voice/voice.wav --words-out projects/<slug>/voice/words.json --fps 30` to convert to 48 kHz 24-bit WAV and extract exact Whisper word timestamps automatically.
@@ -205,7 +228,7 @@ Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
         --output /tmp/pkg_pc.json
       ```
       Verify `contains_mastered_mix_wav: true` and `contains_shots_json: true` in `/tmp/pkg_pc.json`.
-   3. Deliver `./episode_<slug>_pc_bundle.zip` directly to the user so they can upload it into **Voidmetric PC Render Studio** (`http://127.0.0.1:7860`) on their PC — which automatically links shared `node_modules`, upgrades `EFFECT_MSAA` to `4`, renders native **2K (`1440×2560`, 30 fps, `--gl=angle`)**, muxes `mix.wav`, renders subtitle-free `EpisodeThumb`, and runs `short_qa.py` locally!
+   3. Deliver `./episode_<slug>_pc_bundle.zip` directly to the user (along with the Stage 4 Cast Turnaround + Stage 6 16-Tile Look-Check preview images and a concise QA summary: word count, duration, LUFS, framing `PASS`, beat-sync `PASS`, and self-critique fixes made) so they can upload the `.zip` into **Voidmetric PC Render Studio** (`http://127.0.0.1:7860`) on their PC — which automatically links shared `node_modules`, upgrades `EFFECT_MSAA` to `4`, renders native **2K (`1440×2560`, 30 fps, `--gl=angle`)**, muxes `mix.wav`, renders subtitle-free `EpisodeThumb`, and runs `short_qa.py` locally!
 2. **Optional Cloud Self-Render Fallback (ONLY if the user explicitly asks to render in Gemini Tasks instead of on their PC):**
    1. Render the full **`1080×1920` @ `30 fps`** video in safe OOM-proof 300-frame chunks:
       ```bash

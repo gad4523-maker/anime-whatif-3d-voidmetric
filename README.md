@@ -1,10 +1,15 @@
-# `anime-whatif-3d-voidmetric` — Voidmetric `v3.3` Studio 3D Anime "What If" Workflow Pack
+# `anime-whatif-3d-voidmetric` — Voidmetric `v3.4` Studio 3D Anime "What If" Workflow Pack
 
-A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline (plus optional `cloud-1080p` fallback rendering right inside Gemini Tasks).
+A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline with **3 Execution Modes** (`INTERACTIVE`, `OVERNIGHT_AUTOPILOT`, and `FAST_REDO`).
 
 ---
 
-## `v3.2` Custom-First Studio Engine Highlights
+## `v3.4` Custom-First Studio Engine & Modes Highlights
+
+- **3 Execution Modes (`SKILL.md`) — Hands-On OR Sleep Mode!:**
+  - **`MODE: INTERACTIVE` (default):** Pauses at Stage 3 (Lore/Script) AND Stage 4 (3D Character Turnaround) for hands-on approval before building worlds & zipping.
+  - **`MODE: OVERNIGHT_AUTOPILOT` (Sleep Mode):** Drop your reference images + voiceover (or approve script once before bed and upload the voiceover) → Gemini Tasks runs **Stages 4 → 5 → 6 → 7 completely nonstop** with mandatory autonomous self-critique & auto-fix loops on both the 3D character plates (`f0..f5`) and 16-tile Look-Check, delivering `episode_<slug>_pc_bundle.zip` ready when you wake up!
+  - **`MODE: FAST_REDO`:** Reuses your existing voiceover/script/rig from a previous episode to rapidly re-direct worlds, framing, and acting nonstop straight to a fresh PC `.zip`.
 
 - **Custom-First Painted 3D Environment Toolkit (`env3d_core.ts`) — Presets Are Optional!:**
   - Exported primitives (**`makePaintedMat`**, **`makeEnvTex`**, **`celTex`**, **`cel`**, **`hash01`**) let Gemini Tasks build **ANY custom textured 3D anime location from scratch** (pirate ship deck, Shibuya subway, brick rooftops, Stone-World straw village, feudal dojo, dungeon boss hall, soccer pitch) with deterministic `CanvasTexture` detail + `twoTone` cel lighting + ink outlines — never stuck with hardcoded rooms and never flat untextured Play-Doh boxes!
@@ -30,13 +35,32 @@ A complete, end-to-end production workflow pack and AI agent skill for creating 
 
 ---
 
-## Using This Pack Inside Gemini Tasks (Build in Cloud → Render 2K on Your PC!)
+## Using This Pack Inside Gemini Tasks (Choose Your Mode!)
 
-Start a new **Gemini Tasks** session and paste this prompt:
+### Mode 1: `OVERNIGHT_AUTOPILOT` (Sleep Mode — Upload Refs + Voiceover & Wake Up to the Ready PC `.zip`!)
+
+Upload your character reference images + voiceover `.mp3`/`.wav` (+ optional SFX files) into **Gemini Tasks** and paste:
 
 ```text
 Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
-Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile for cloud Look-Check stills (MSAA=2, --gl=swangle, --concurrency=1).
+Read SKILL.md completely and run in MODE: OVERNIGHT_AUTOPILOT using `cloud-1080p` settings for Look-Check stills (MSAA=2, --gl=swangle, --concurrency=1).
+
+Topic: "What If You Woke Up With [CHARACTER]'s Power?"
+
+Rules for MODE: OVERNIGHT_AUTOPILOT:
+- If I already uploaded my voiceover & character reference images in this chat: run ALL Stages 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 COMPLETELY NONSTOP with ZERO mid-build pauses! (If I haven't uploaded my voiceover yet, run Stages 1-3, give me the tight 52-62s script + 5 genre-matched SFX prompts, and pause ONCE for my voiceover — then run Stages 4 -> 7 completely nonstop with ZERO further pauses!)
+- Classify the anime genre strictly (`supernatural_combat`, `grounded_genius`, `mecha_tech`, or `dark_thriller` — ZERO magic halos, fantasy energy auras, or levitation on grounded anime!).
+- DO NOT skip quality checks while running nonstop: run mandatory autonomous visual self-critique & auto-fix loops (up to 2 iterations) on BOTH Stage 4 `CastSheet3D` (`f0..f5`, matching my reference images closely) AND Stage 6 `EpisodeLookCheck3D` (all 16 tiles — custom painted textures via `makePaintedMat`, custom VFX via `createCustomVFXMat` when appropriate, multi-scale close-ups/inserts/mediums/wides, off-center prop staging, zero clipping, `check-framing` PASS, `check-beats` PASS).
+- At Stage 7, DO NOT CPU-render the video in the cloud — ensure `projects/<slug>/out/shots.json` and mastered `mix.wav` (`-14.5 LUFS`) are saved, run `python3 scripts/whatif_cli.py package-pc`, and deliver `episode_<slug>_pc_bundle.zip` along with the cast turnaround & 16-tile Look-Check preview images so I can render native 2K in Voidmetric PC Render Studio when I wake up!
+```
+
+### Mode 2: `INTERACTIVE` (Hands-On Approval at Script & 3D Character Gates)
+
+Start a new **Gemini Tasks** session and paste:
+
+```text
+Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
+Read SKILL.md completely and run in MODE: INTERACTIVE using `cloud-1080p` settings for cloud Look-Check stills (MSAA=2, --gl=swangle, --concurrency=1).
 
 Topic: "What If You Woke Up With [CHARACTER]'s Power?"
 
@@ -47,6 +71,16 @@ Start at Stage 1 & Stage 2:
 4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create highly accurate, detailed 3D anime character rigs using `buildAnimeHead3D()` + `createAnimeFaceController()` matching EVERY proportion, facial feature, sculpted hair lock, outfit detail, and accessory of the original character from my reference images (never circle heads or generic placeholders!). Render all turnaround, 3/4 profile, cast lineup, AND live expression plates (`f0..f5`) and SHOW ME the created characters. Do NOT proceed further to video/world/VFX creation until I explicitly approve the characters!
 5. STAGE 6 CUSTOM-FIRST WORLDS, VFX & CINEMATOGRAPHY: Hardcoded environment & VFX presets are OPTIONAL — freely build ANY custom textured 3D location (`makePaintedMat`/`makeEnvTex`/`celTex`/`hash01`) and ANY bespoke 3D GLSL/physical VFX (`createCustomVFXMat`/`NOISE_GLSL`/`setNoInkTree`/`getGlowSpriteTex`) the episode needs (zero untextured Play-Doh boxes, and zero fantasy magic auras on grounded anime!). Mix close-ups/inserts/mediums/wides (`shot_type` in `check-framing`), stage characters off-center beside chalkboards/blueprints, and never leave MC frozen holding an invisible orb!
 6. STAGE 7 PC RENDER EXPORT: Once all 16 Stage 6 Look-Check tiles pass visual inspection (and `projects/<slug>/out/shots.json` + mastered `mix.wav` are ready), DO NOT waste time CPU-rendering in the cloud — immediately package the workspace via `python3 scripts/whatif_cli.py package-pc` and deliver the `.zip` bundle so I can drag-and-drop it into my Voidmetric PC Render Studio app to render native 2K on my PC!
+```
+
+### Mode 3: `FAST_REDO` (Re-Direct an Existing Episode Nonstop Into a Fresh PC `.zip`)
+
+Upload your previous episode `.zip` (or voiceover + approved rig) and paste:
+
+```text
+Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
+Read SKILL.md completely and run in MODE: FAST_REDO.
+Reuse the uploaded voiceover, script, and approved 3D character rig(s), rebuild the 3D worlds/cinematography/FX strictly following v3.4 custom-first painted textures, genre-locking, and multi-scale close-up framing, run autonomous Stage 6 self-critique on all 16 Look-Check tiles + `check-framing` + `check-beats`, and deliver the updated `episode_<slug>_pc_bundle.zip` via `package-pc` with ZERO pauses!
 ```
 
 ---
