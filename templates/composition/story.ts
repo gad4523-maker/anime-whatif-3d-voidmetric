@@ -1,4 +1,8 @@
-// Voidmetric v3.0 Starter Episode Timeline, Cinematic Camera & Sakuga Impact Choreography!
+// Voidmetric v3.1 Starter Episode Timeline, Multi-Scale Cinematic Camera & Genre-Matched FX!
+// IMPORTANT (v3.1 Shot-Scale Rhythm): Mix Extreme Face Close-Ups (`1.6–2.0 m`, `shot_type: "closeup"`),
+// Prop/Hand Inserts (`1.1–1.5 m`, `shot_type: "insert"`), Medium Waist-Up (`2.6–3.2 m`, `shot_type: "medium"`),
+// and Wide Establishing (`4.5–5.5 m`) — NEVER run >2 full-body shots in a row!
+// Only use `IMPACT_FRAMES` / `SPEEDLINES` when they fit the episode's genre tone!
 import { EpisodeLightName } from "./lights";
 import { CamState, V3, applyCameraKicks, glide, handheldBreath, lowAngleHero, orbitCam } from "./cam3d_core";
 import { HitStopCue, ImpactFrameCue, SpeedlineCue } from "./sakuga_fx";

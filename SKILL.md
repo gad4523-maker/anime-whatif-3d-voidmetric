@@ -69,8 +69,8 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 
 1. **`init-episode`** — Scaffolds a **100% immediately compilable (`tsc --noEmit` = 0 errors)** episode workspace (`projects/<slug>/` + `src/videos/<slug>/`) with `rig3d_core.ts`, **locked `rig3d_mc.ts`**, `rig3d_guest.ts`, `vfx3d.ts`, `Subtitles.tsx` (with bundled OFL `Montserrat-Black.ttf`), `CastSheet3D.tsx`, `LookCheck3D.tsx`, `EpisodeShort.tsx`, `lights.ts`, `story.ts`, `cast.ts`, `world.ts`, `subtitles_data.ts`, `mix_episode.py`, `dsp.py`, and doc templates. Pass `--bootstrap-remotion` on fresh cloud sandboxes and `--profile cloud-1080p|local-2k`.
 2. **`align-voice`** — Converts uploaded voiceover (`.mp3`/`.wav`/`.m4a`) cleanly to 48 kHz 24-bit stereo `voice.wav` and extracts exact Whisper word-level timestamps (`words.json`) via `faster-whisper` or `openai-whisper`.
-3. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`, `halfHeight = D * tan(fov/2)`) to catch limb/hair/orb/kanji clipping BEFORE rendering.
-4. **`sync-subtitles`** — Converts measured word timestamps JSON (`words.json`) into clean steady karaoke `subtitles_data.ts` matching `Subtitles.tsx`.
+3. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`, `halfHeight = D * tan(fov/2)`). Supports `"shot_type": "full_body" | "medium" | "closeup" | "insert"` (plus `allow_bottom_crop: true`) so dramatic close-ups and waist-up shots pass cleanly without forcing 5 m full-body cameras while still strictly protecting head/top and left/right edges!
+4. **`sync-subtitles`** — Converts measured word timestamps JSON (`words.json`) into clean steady karaoke `subtitles_data.ts` matching `Subtitles.tsx`, with automatic **orphan-word avoidance** (never ends a caption chunk on a dangling `"A"`, `"THE"`, `"OF"`, `"WITH"`, `"WITHOUT"`, `"AND"`!).
 5. **`package-colab`** — Pure-Python `zipfile` packager (no external `zip` binary needed!) that cleanly bundles `workspace-remotion` for Google Colab Pro while excluding `node_modules/`, `.git/`, and temp caches.
 6. **`render-cloud`** — OOM-proof, **resumable chunked 1080p CPU renderer** for Gemini Tasks (`--gl swangle --concurrency 1 --chunk-frames 300`, cleans `/tmp/remotion-tmp` between every chunk, concatenates losslessly via FFmpeg `-c copy`, and muxes `--audio` cleanly).
    ```bash
@@ -95,12 +95,18 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 
 ## Workflow (7 Mandatory Stages & Approval Gates)
 
-### Stage 1 — Topic Intake, Asset Request & SFX Prompts
+### Stage 1 — Topic Intake, Genre Classification, Asset Request & SFX Prompts
 1. Run `whatif_cli.py init-episode` (`--profile cloud-1080p --bootstrap-remotion` in Gemini Tasks; `--profile local-2k` on local GPU PC).
-2. Ask the user for:
-   - **Reference images** of the guest anime character(s), iconic poses, and signature VFX.
-   - **Voiceover plan** (user-uploaded ~60 s voiceover `.mp3`/`.wav`, target ~175–195 words).
-3. Give the user **5 tailored SFX generation prompts** customized to that anime power.
+2. **MANDATORY Genre & Visual-Tone Classification (NEVER mix magic VFX into grounded anime!):**
+   Classify the character's source anime into ONE of 4 strict visual modes right at Stage 1 and record it in `LORE_FACT_SHEET.md` + `PLAN.md`:
+   - **`supernatural_combat`** (*Dragon Ball*, *JJK*, *Bleach*, *Naruto*, *JoJo*, *Solo Leveling*, *Demon Slayer*) — Full 3D GLSL power VFX (`EnergyOrb3D`, `EnergyAura3D`, beams, lightning, bespoke shaders) + Sakuga Impact Frames + cosmic/battlefield arenas.
+   - **`grounded_genius`** (*Dr. STONE*, *Death Note*, *Classroom of the Elite*, *Vinland Saga*, *Blue Lock*, *Monster*, *Haikyu!!*) — **STRICTLY BAN** fantasy energy auras, glowing magic halo rings, levitation (`hover_float`), cosmic purple voids, and Kamehameha/palm-blast poses! Tell the story through **painted realistic sets** (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`), **physical 3D props** (flasks, notebooks, chalkboards, blueprints, tools), **grounded human acting** (`inspect_prop`, `write_board`, `wheeze_knees`, `talk_gesture`, `sit_desk`), and expressive **face close-ups**!
+   - **`mecha_tech`** (*Cyberpunk*, *Code Geass*, *Gundam*, *Iron Man*) — Crisp tactical HUDs, sparks, metallic machinery, clean engineering light; no fantasy flame auras.
+   - **`dark_thriller`** (*Attack on Titan*, *Chainsaw Man*, *Tokyo Ghoul*, *Berserk*) — Gritty moody lighting, physical blade/smoke/blood-splash FX, grounded tense framing.
+3. Ask the user for:
+   - **Reference images** of the guest anime character(s), iconic poses, and signature props/VFX.
+   - **Voiceover plan** (user-uploaded **~52–62 s** voiceover `.mp3`/`.wav`, target **150–175 words** — keep tightly around ~60 s!).
+4. Give the user **5 tailored SFX generation prompts** matched strictly to the episode's genre (e.g., chalk scribbling, glassware clinking, heavy panting, heartbeats for `grounded_genius` — NOT sci-fi laser hums!).
 
 ### Stage 2 — Mandatory Full-Canon Lore & Power Fact-Checker Gate
 > [!CAUTION]
@@ -119,9 +125,11 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - **Unadapted Manga/Novel Spoilers Flagged:** Explicitly flag manga/novel-only feats not yet animated so the user can choose whether to include them (default: **include full latest official canon** unless user opts out).
    - **What-If Real-World Extrapolations** clearly labeled separately from stated canon.
 
-### Stage 3 — ~60s Viral Script, 3-Second Hook Gate & Adversarial Lore Audit (**APPROVAL GATE 1**)
-1. Draft `projects/<slug>/SCRIPT.md` (~175–195 words, ~55–65 s) using the proven Beerus beat arc (`references/beerus-gold-standard/SCRIPT_beerus_example.md`). Avoid repetitive gimmick standalone `"Wrong."` drops — earn the twist naturally through an escalating consequence!
-2. **Mandatory First-3-Seconds Retention Hook Check (`f0–f90`):** Confirm that within the first `2.8 seconds` (`<= frame 84`), the viewer immediately sees: (a) active glowing 3D power VFX in frame 0, (b) MC's sharp-jawline anime reaction, AND (c) the first physical power consequence (e.g., object dissolving, slicing, warping) — zero slow fade-ins or static talking intros!
+### Stage 3 — ~60s Viral Script, Genre-Matched 3-Second Hook Gate & Adversarial Lore Audit (**APPROVAL GATE 1**)
+1. Draft `projects/<slug>/SCRIPT.md` (**150–175 words**, **`52–62 s` target — NEVER exceed `65 s`!**) using the proven Voidmetric beat arc (`references/beerus-gold-standard/SCRIPT_beerus_example.md`). Avoid repetitive gimmick standalone `"Wrong."` drops — earn the twist naturally through an escalating consequence!
+2. **Mandatory Genre-Matched First-3-Seconds Retention Hook Check (`f0–f90`):** Confirm that within the first `2.8 seconds` (`<= frame 84`), the viewer immediately sees a punchy visual hook matched to the episode's genre — zero slow fade-ins or static full-body talking intros:
+   - For **`supernatural_combat` / `mecha_tech` / `dark_thriller`**: (a) active glowing 3D power/tech/action VFX in frame 0, (b) MC's sharp-jawline reaction, AND (c) immediate physical consequence.
+   - For **`grounded_genius`**: (a) dramatic tight face close-up or dynamic physical prop/environment reveal in frame 0 (e.g., wide-eyed waking realization, chalkboard equation burst, real lab experiment), (b) crisp facial acting, AND (c) immediate real-world consequence — **ZERO glowing magic halos or fake fantasy auras!**
 3. **Adversarial Lore Audit:** Perform an independent line-by-line audit trying to **disprove every factual claim** in `SCRIPT.md` against `LORE_FACT_SHEET.md` and official canon. Fix any inaccuracy and record `PASS` sign-off in `LORE_FACT_SHEET.md`.
 4. Present `LORE_FACT_SHEET.md`, flagged spoilers, `SCRIPT.md`, and the 5 SFX prompts. **Wait for explicit user approval before rigging or audio.**
 
@@ -152,24 +160,40 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 2. Run `whatif_cli.py sync-subtitles` on `words.json` to generate `subtitles_data.ts` + verify exact beat sync (every visual impact in `story.ts` lands `0–3 frames` before its spoken punch word!).
 3. Customize `projects/<slug>/audio/audio_cues.json` (pick a procedural anime music mood: `shonen_battle`, `dark_cosmic`, `mystery_science`, `cyber_thriller`, or `tragic_twist`, set BPM, twist-drop silence timestamps, and SFX cues) and run `mix_episode.py` (`-14.5 LUFS`, true peak `<= -1.1 dBTP`, 0 unintended silences).
 
-### Stage 6 — 3D World, Universal GLSL VFX, Sakuga FX & Zero-Clipping 9:16 Look-Check Gate
-1. **Modular Cel-Shaded 3D Environments & Weapons:** Build 5–6 spatial 3D zones (`0, 120, 240, 360, 480, 600`) rapidly using `env3d_core.ts` (`buildModernRoom`, `buildCityStreet`, `buildBattlefieldCrater`, `buildForestGrove`, `buildCosmicRealm`, `buildCelClouds`, `buildStarfield`), `props3d_core.ts` (`attachToHand`, `buildKatana3D`, `buildStaff3D`, `buildEnergyBlade3D`, `buildScienceFlask3D`, `buildCoffeeMug3D`, `buildSmartphone3D`), and `cam3d_core.ts` (`orbitCam`, `dutchPush`, `crashZoom`, `lowAngleHero`, `overShoulder`, `handheldBreath`, `clampSafe916Dist`).
-2. **Smooth 26-Bone Animation, Eye-Gaze & Expressions:** Use `anim3d_core.ts` (`applyAnimeMotion`, `blendAnimeMotions`, `applySecondarySway` across 12 reusable clips: `idle_hero`, `walk`, `run`, `sprint_lean`, `hover_float`, `power_charge`, `finger_snap`, `palm_blast`, `sword_slash`, `punch_combo`, `recoil_hit`, `kneel_exhausted`), live `rig.setExpr?.(expr, t, talk)`, and live `rig.setGaze?.(gx, gy)`!
-3. **9 Universal Bone-Locked 3D GLSL VFX + Bespoke Power Shaders + Sakuga Impact Frames:** Use `vfx3d.ts` (`EnergyOrb3D`, `EnergyAura3D`, `EnergyBeam3D`, `LightningArc3D`, `makeDissolveMat3D`, `MoteSwarm3D`, `ShockwaveBlast3D`, `EnergySlice3D`, `DomainBarrier3D`, `KanjiBurst3D`) — 100% color-parameterized for ANY anime power! **Bespoke Power VFX Rule:** Whenever an anime power has a signature visual beyond generic presets (e.g., JoJo Stand projection / Time-Stop negative-color bubble, crisscrossing Void Slash Cage, Demon Slayer elemental ribbons, Law's `ROOM`, shadow-army mist), author a custom Three.js GLSL `ShaderMaterial` class right inside that episode's `vfx3d.ts` on layer `NOINK` instead of forcing a generic orb/beam! Add 2–3f B&W/inverted `IMPACT_FRAMES`, pulsing `SPEEDLINES`, and `HIT_STOPS` in `story.ts` via `sakuga_fx.tsx`. Call `this.cast.update(...)` + `this.root.updateMatrixWorld(true)` FIRST, then attach hand/weapon VFX via `bone.localToWorld(...)` (`+0.12..0.15 m` palm-to-camera offset).
-4. **Zero-Clipping 9:16 + Beat-Sync Gate:**
-   - Run `whatif_cli.py check-framing` (`PASS`) AND `whatif_cli.py check-beats` (confirming every impact lands `0–4 frames` before its punch word!).
-   - Render `EpisodeLookCheck3D` (`16` frames at `540×960`, `--gl=swangle --concurrency=1` in cloud / `--gl=angle --concurrency=4` on GPU), tile into `sheet_3d.jpg`, and **visually inspect every tile**. Fix ANY clipped limb, hair spike, orb, kanji, or weapon before full render!
+### Stage 6 — Painted 3D Worlds, Multi-Scale Directing, Genre-Matched FX & Zero-Clipping 9:16 Look-Check Gate
+1. **Painted Textured 3D Environments (ZERO Flat Boxes & ZERO Recycled Rooms!):**
+   Build 5–6 **visually distinct** painted spatial 3D zones (`0, 120, 240, 360, 480, 600`) using `env3d_core.ts`'s textured cel builders:
+   - Interiors: `buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildModernRoom`
+   - Exteriors & Action: `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`, `buildBattlefieldCrater`, `buildCosmicRealm` *(ONLY for `supernatural_combat`!)*, `buildCelClouds`, `buildStarfield`
+   - **Strict Set Variety Rule:** **NEVER reuse the exact same room builder (`buildModernRoom`) for Bedroom + Classroom + Lab!** Use the matching painted builder (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`), and paint any custom story props (chalkboards, blueprints, notebooks, monitors) with `CanvasTexture` — never bare untextured boxes!
+2. **Mandatory Shot-Scale Rhythm & Rule-of-Thirds Staging (NO Monotonous 5 m Full-Body Loops!):**
+   - **Never run more than 2 full-body shots in a row!** Alternate deliberately across:
+     - **Extreme Face Close-Ups (`1.6–2.1 m`, `shot_type: "closeup"`)** — showcase live expressions (`smirk`, `shock`, `pain`, `intense`), eye-gaze, and sweat/reactions!
+     - **Prop / Hand Inserts (`1.1–1.5 m`, `shot_type: "insert"`)** — cut directly onto flasks, chalkboards, notebooks, weapons, or triggers so details read crisply!
+     - **Medium Waist-Up (`2.6–3.2 m`, `shot_type: "medium"`)** — primary dialogue, lab work, and reaction beats!
+     - **Wide Establishing / Full-Body (`4.4–5.4 m`, `shot_type: "full_body"`)** — locomotion, arena reveals, and full-body action!
+   - **Rule-of-Thirds Prop Staging:** When a chalkboard, blueprint board, desk, or key prop sits behind a character, offset the character cleanly into the left or right third (`x = ±0.26..0.38 m` in 9:16 medium shots so the outer shoulder stays inside the frame!) or frame over-the-shoulder (`overShoulder`) so the character's torso NEVER blocks the prop!
+3. **18-Clip Animation Library, Grounded Acting & Clean MC Cameos:**
+   - Use `anim3d_core.ts` (`applyAnimeMotion`, `blendAnimeMotions`, `applySecondarySway`) matching the episode genre:
+     - **Grounded Acting & Skirt-Safe Motion:** `idle_hero`, `walk`, `run_skirt_safe` *(use whenever character wears a tunic, skirt, or long coat!)*, `wheeze_knees` *(hands-on-knees exhaustion with face visible!)*, `inspect_prop`, `write_board`, `talk_gesture`, `sit_desk`, `kneel_exhausted` *(face readable!)*.
+     - **Combat / Supernatural Motion:** `run`, `sprint_lean`, `hover_float` *(ONLY for characters who canonically fly!)*, `power_charge`, `finger_snap`, `palm_blast`, `sword_slash`, `punch_combo`, `recoil_hit`.
+   - **MC Cameo Acting Rule:** Never leave MC frozen in `wake_orb` cradling an invisible orb or in `power_aura` unless an actual orb/aura exists in that shot! Use `mc.setPose("idle_casual", t)` or `applyAnimeMotion(mc, "talk_gesture" | "inspect_prop" | "wheeze_knees" | "walk", p, t, 0.94)` for grounded cameos!
+4. **Genre-Matched VFX & Sakuga FX:**
+   - For **`supernatural_combat`**: use `vfx3d.ts` (`EnergyOrb3D`, `EnergyAura3D`, `EnergyBeam3D`, `LightningArc3D`, `makeDissolveMat3D`, `MoteSwarm3D`, `ShockwaveBlast3D`, `EnergySlice3D`, `DomainBarrier3D`, `KanjiBurst3D`) or custom Three.js GLSL `ShaderMaterial` classes on layer `NOINK`, plus 2–3f B&W/inverted `IMPACT_FRAMES` and `SPEEDLINES` via `sakuga_fx.tsx`. Call `this.cast.update(...)` + `this.root.updateMatrixWorld(true)` FIRST, then lock hand/weapon VFX via `bone.localToWorld(...)` (`+0.12..0.15 m` palm-to-camera offset).
+   - For **`grounded_genius`**: **ZERO** `EnergyAura3D`, **ZERO** glowing magic rings/halos, **ZERO** levitation! Use physical 3D props (`props3d_core.ts` + custom painted props), natural atmospheric lighting, chalk dust/steam particles if physically real, and sharp editorial cuts!
+5. **Zero-Clipping 9:16 + Beat-Sync Gate:**
+   - Run `whatif_cli.py check-framing` (`PASS`, tagging close-up/medium/insert shots with `"shot_type": "closeup" | "medium" | "insert"`) AND `whatif_cli.py check-beats` (confirming every impact lands `0–4 frames` before its punch word!).
+   - Render `EpisodeLookCheck3D` (`16` frames at `540×960`, `--gl=swangle --concurrency=1` in cloud / `--gl=angle --concurrency=4` on GPU), tile into `sheet_3d.jpg`, and **visually inspect every tile**. Fix ANY clipped head/limb, blocked prop, flat untextured room, or genre-mismatched VFX before full render!
 
 ### Stage 7 — Render Choice Gate (Colab GPU vs. Self-Render 1080p), `qa-audit` & Delivery
 Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
 
 1. **MANDATORY RENDER CHOICE QUESTION (On Cloud / CPU Sandboxes like Gemini Tasks):**
    Before starting the full render, **always ask the user:**
-   > *"All 16 Look-Check frames passed with zero clipping! Do you have **Google Colab Pro (`L4`/`T4` GPU)** to render this in ~2–4 minutes (1080p or 2K), or should I render the full **1080p 30 fps** video myself right here?"*
-   - **If user says YES (has Google Colab Pro):**
-     1. Run `python3 scripts/whatif_cli.py package-colab --remotion-root ./workspace-remotion --slug <slug> --out-zip ./episode_<slug>_colab_bundle.zip --output /tmp/pkg_colab.json` (pure-Python zip, excludes `node_modules/` & caches, verifies `package.json` + `mix.wav`).
-     2. Deliver the `.zip` along with the 1-click Colab Pro link:
-        `https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb` (remind them to pick **`L4 GPU`** or **`T4 GPU`**, never A100/TPU).
+   > *"All 16 Look-Check frames passed with zero clipping! Would you like me to export the lightweight **`.zip` bundle** (`package-colab`) so you can render it fast on your **Local PC Render Studio** or **Google Colab Pro (`L4`/`T4` GPU)**, or should I render the full **1080p 30 fps** video right here?"*
+   - **If user wants the `.zip` bundle (Local PC GPU Render Studio or Google Colab Pro):**
+     1. Ensure `projects/<slug>/out/shots.json` exists with exact shot start/end frame numbers, then run `python3 scripts/whatif_cli.py package-colab --remotion-root ./workspace-remotion --slug <slug> --out-zip ./episode_<slug>_render_bundle.zip --output /tmp/pkg_colab.json` (pure-Python zip, excludes `node_modules/` & caches, verifies `package.json` + `mix.wav` + `shots.json`).
+     2. Deliver the `.zip` (works directly in **Voidmetric PC Render Studio** OR in the 1-click Colab Pro link: `https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb` on **`L4`/`T4` GPU**).
    - **If user says NO (no Colab — self-render right here in `1080p 30 fps`):**
      1. Immediately render the full **`1080×1920` @ `30 fps`** video in safe OOM-proof 300-frame chunks:
         ```bash

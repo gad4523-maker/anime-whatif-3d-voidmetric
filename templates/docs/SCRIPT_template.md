@@ -1,5 +1,5 @@
 # {{EPISODE_TITLE}} — Viral ~60s Script
-**Slug:** `{{EPISODE_SLUG}}` | **Target Duration:** `55–65 s` (~175–195 words) | **Format:** Native 2K `1440×2560`, 30 fps
+**Slug:** `{{EPISODE_SLUG}}` | **Genre Mode:** `[supernatural_combat | grounded_genius | mecha_tech | dark_thriller]` | **Target Duration:** `52–62 s` (`150–175 words`, NEVER >65 s!) | **Format:** Native 2K `1440×2560` / 1080p `1080×1920`, 30 fps
 
 > [!IMPORTANT]
 > Every factual claim below must trace directly back to `LORE_FACT_SHEET.md` and pass the Adversarial Lore Audit before voiceover or 3D rigging begins. Avoid stale repetitive gimmicks (like inserting a robotic standalone `"Wrong."` in the middle — earn the turn naturally through a shocking visual consequence!).

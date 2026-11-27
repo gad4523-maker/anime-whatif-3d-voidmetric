@@ -1,4 +1,11 @@
-// Voidmetric v3.0 Starter 3D World + Modular Cel Environments + Universal Bone-Locked GLSL VFX!
+// Voidmetric v3.1 Starter 3D World + Painted Cel Environments + Genre-Appropriate VFX!
+// IMPORTANT (v3.1 Genre Rule):
+//   - For `grounded_genius` anime (Dr. STONE, Death Note, Vinland Saga, Blue Lock, etc.):
+//     REMOVE EnergyOrb3D, EnergyAura3D, and buildCosmicRealm completely! Use painted realistic sets
+//     (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`)
+//     and physical 3D props instead — NEVER slap magic halos or energy auras on non-magic anime!
+//   - For `supernatural_combat` anime (DBZ, JJK, Bleach, Naruto, JoJo, Solo Leveling):
+//     Use the color-parameterized GLSL VFX engines below (or custom shaders in vfx3d.ts).
 import * as THREE from "three";
 import { TONE, CHAR, untone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";

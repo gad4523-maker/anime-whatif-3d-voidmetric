@@ -725,6 +725,22 @@ export function buildMCRig3D(opts: { powerEyes?: boolean; powerColor?: string } 
       thighR.rotation.set(-0.14, 0.16, -0.16);
       kneeR.rotation.set(0.24, 0, 0);
       ankleR.rotation.set(-0.10, 0, 0.14);
+    } else if (pose === "idle_casual") {
+      // Relaxed everyday standing stance for grounded non-magic episodes (NEVER holds an invisible orb!)
+      hips.position.set(0, 0.94 + Math.sin(t * 2.2) * 0.008, 0);
+      spine.rotation.set(0.02, -0.08, Math.sin(t * 1.4) * 0.014);
+      chest.rotation.set(br, -0.04, 0);
+      head.rotation.set(0.02 - br * 0.4, 0.10 + Math.sin(t * 1.2) * 0.05, 0.02);
+      shoulderL.rotation.set(0.08, -0.04, 0.18);
+      elbowL.rotation.set(-0.26, 0, -0.04);
+      handL.setGesture("relaxed");
+      shoulderR.rotation.set(0.10, 0.04, -0.18);
+      elbowR.rotation.set(-0.30, 0, 0.04);
+      handR.setGesture("relaxed");
+      thighL.rotation.set(-0.04, -0.08, 0.06);
+      kneeL.rotation.set(0.06, 0, 0);
+      thighR.rotation.set(0.04, 0.08, -0.06);
+      kneeR.rotation.set(0.06, 0, 0);
     } else if (pose === "shock_recoil") {
       spine.rotation.set(-0.12, 0, 0);
       head.rotation.set(-0.08, 0, 0.05);

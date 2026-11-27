@@ -173,7 +173,7 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
         "next_steps": [
             "1. If on a fresh cloud sandbox, run `npm install` in remotion_root and `pip install numpy scipy pillow`.",
             "2. Complete Canon Fact-Check & fill LORE_FACT_SHEET.md (flagging any manga spoilers).",
-            "3. Draft SCRIPT.md (~175-195 words, ~60 s), run Adversarial Lore Audit, and get user approval.",
+            "3. Draft SCRIPT.md (~150-175 words, ~52-62 s), classify episode genre, run Adversarial Lore Audit, and get user approval.",
             "4. Build guest 3D anime rig(s) in rig3d_guest.ts, export .glb, and get turnaround approval.",
             "5. Run check-framing & render EpisodeLookCheck3D (16 frames) before full render.",
             "6. Render via `render-cloud` (cloud-1080p) or native EpisodeShort2K (local-2k), then run `qa-audit`.",
@@ -226,6 +226,13 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
 
     for shot in shots:
         sid = shot.get("id", "unknown")
+        shot_type = str(shot.get("shot_type", "full_body")).strip().lower()
+        shot_bottom_crop = bool(shot.get("allow_bottom_crop", False)) or shot_type in (
+            "medium",
+            "closeup",
+            "close_up",
+            "insert",
+        )
         pos = [float(v) for v in shot["pos"]]
         look = [float(v) for v in shot["look"]]
         fov_deg = float(shot.get("fov", 41.0))
@@ -245,6 +252,7 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
             center = [float(subj["x"]), float(subj["y"]), float(subj["z"])]
             hw = float(subj.get("half_w", 0.45))
             hh = float(subj.get("half_h", 0.90))
+            allow_bottom_crop = bool(subj.get("allow_bottom_crop", shot_bottom_crop))
 
             rel = _vec_sub(center, pos)
             depth = _vec_dot(rel, fwd)
@@ -263,23 +271,31 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
             margin_bottom = (cy - hh) - (-vis_half_h)
             margin_top = vis_half_h - (cy + hh)
 
-            min_edge = min(margin_left, margin_right, margin_bottom, margin_top)
+            checked_edges: list[tuple[str, float]] = [
+                ("LEFT", margin_left),
+                ("RIGHT", margin_right),
+                ("TOP", margin_top),
+            ]
+            if not allow_bottom_crop:
+                checked_edges.append(("BOTTOM", margin_bottom))
+
+            eff_min_margin = (
+                min(min_margin, vis_half_w * 0.16)
+                if shot_type in ("closeup", "close_up", "insert")
+                else min_margin
+            )
+            min_edge = min(m for _, m in checked_edges)
             status = "PASS"
             if min_edge < 0.0:
                 status = "CLIP_ERROR"
                 any_fail = True
-                clipped_edges = [
-                    edge
-                    for edge, m in [
-                        ("LEFT", margin_left),
-                        ("RIGHT", margin_right),
-                        ("BOTTOM", margin_bottom),
-                        ("TOP", margin_top),
-                    ]
-                    if m < 0.0
-                ]
-                req_depth_w = (abs(cx) + hw + min_margin) / max(tan_half_x, 1e-6)
-                req_depth_h = (abs(cy) + hh + min_margin) / max(tan_half_y, 1e-6)
+                clipped_edges = [edge for edge, m in checked_edges if m < 0.0]
+                req_depth_w = (abs(cx) + hw + eff_min_margin) / max(tan_half_x, 1e-6)
+                req_depth_h = (
+                    max(0.0, (cy + hh + eff_min_margin)) / max(tan_half_y, 1e-6)
+                    if allow_bottom_crop
+                    else (abs(cy) + hh + eff_min_margin) / max(tan_half_y, 1e-6)
+                )
                 shot_issues.append(
                     {
                         "subject": name,
@@ -288,7 +304,7 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
                         "recommended_min_depth_m": round(max(req_depth_w, req_depth_h), 2),
                     }
                 )
-            elif min_edge < min_margin:
+            elif min_edge < eff_min_margin:
                 status = "TIGHT_WARNING"
                 shot_issues.append({"subject": name, "severity": "TIGHT_WARNING", "min_margin_m": round(min_edge, 3)})
 
@@ -296,6 +312,7 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
                 {
                     "name": name,
                     "status": status,
+                    "bottom_crop_allowed": allow_bottom_crop,
                     "depth_m": round(depth, 3),
                     "visible_half_w_m": round(vis_half_w, 3),
                     "visible_half_h_m": round(vis_half_h, 3),
@@ -311,6 +328,8 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
         results.append(
             {
                 "shot_id": sid,
+                "shot_type": shot_type,
+                "bottom_crop_allowed": shot_bottom_crop,
                 "fov_deg": fov_deg,
                 "status": "FAIL" if any(i["severity"] == "CLIP_ERROR" for i in shot_issues) else ("WARN" if shot_issues else "PASS"),
                 "subjects": subject_reports,
@@ -334,8 +353,22 @@ def cmd_check_framing(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 3. sync-subtitles
+# 3. sync-subtitles (Orphan-Free Karaoke Chunking)
 # ---------------------------------------------------------------------------
+DANGLING_WORDS = {
+    "a", "an", "the", "to", "of", "in", "on", "at", "for", "with", "without",
+    "into", "from", "by", "and", "or", "but", "as", "is", "are", "was", "were",
+    "my", "your", "his", "her", "its", "our", "their", "this", "that", "these", "those",
+}
+
+
+def _is_dangling_tail(word_text: str) -> bool:
+    if word_text.endswith((".", "!", "?", "—", ",")):
+        return False
+    clean = re.sub(r"[^a-z0-9'-]+", "", word_text.lower())
+    return clean in DANGLING_WORDS
+
+
 def cmd_sync_subtitles(args: argparse.Namespace) -> None:
     words_path = Path(args.words_json).resolve()
     if not words_path.exists():
@@ -376,8 +409,16 @@ def cmd_sync_subtitles(args: argparse.Namespace) -> None:
         if cur and (f_start - cur[-1]["fEnd"]) > int(round(0.35 * fps)):
             flush()
         cur.append({"text": text, "fStart": f_start, "fEnd": f_end, "tone": tone})
-        if len(cur) >= max_words or text.endswith((".", "!", "?", "—", ",")):
+        if text.endswith((".", "!", "?", "—", ",")):
             flush()
+        elif len(cur) >= max_words:
+            # Never strand a dangling preposition/article at the end of a caption chunk!
+            if len(cur) > 1 and _is_dangling_tail(cur[-1]["text"]):
+                carry = cur.pop()
+                flush()
+                cur = [carry]
+            else:
+                flush()
     flush()
 
     ts_lines = [
@@ -861,8 +902,15 @@ def cmd_export_srt(args: argparse.Namespace) -> None:
         if buf and (float(w["start"]) - float(buf[-1]["end"])) > 0.38:
             flush()
         buf.append(w)
-        if len(buf) >= max_words or txt.endswith((".", "!", "?", "—", ",")):
+        if txt.endswith((".", "!", "?", "—", ",")):
             flush()
+        elif len(buf) >= max_words:
+            if len(buf) > 1 and _is_dangling_tail(txt):
+                carry = buf.pop()
+                flush()
+                buf = [carry]
+            else:
+                flush()
     flush()
 
     lines: list[str] = []

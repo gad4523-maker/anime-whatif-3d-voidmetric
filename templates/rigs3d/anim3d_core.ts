@@ -1,4 +1,4 @@
-// Voidmetric v3.0 26-Bone Anime Pose, Locomotion, Pose-Blending & Secondary Wind-Physics Engine!
+// Voidmetric v3.1 26-Bone Anime Pose, Grounded Acting, Locomotion, Pose-Blending & Secondary Wind-Physics Engine!
 // Works universally on ANY `AnimeRig3D` (Channel MC or ANY Guest Anime character!).
 import * as THREE from "three";
 import { AnimeRig3D, HandGesture3D, clamp01, lerp, smStep } from "./rig3d_core";
@@ -7,6 +7,7 @@ export type AnimeMotionClip =
   | "idle_hero"
   | "walk"
   | "run"
+  | "run_skirt_safe"
   | "sprint_lean"
   | "hover_float"
   | "power_charge"
@@ -15,7 +16,12 @@ export type AnimeMotionClip =
   | "sword_slash"
   | "punch_combo"
   | "recoil_hit"
-  | "kneel_exhausted";
+  | "kneel_exhausted"
+  | "wheeze_knees"
+  | "inspect_prop"
+  | "write_board"
+  | "talk_gesture"
+  | "sit_desk";
 
 type Vec3Tuple = [number, number, number];
 type JointName =
@@ -46,7 +52,7 @@ function zeroPose(baseHipsY = 0.96): PoseSnapshot {
   return { hipsY: baseHipsY, rot, handL: "relaxed", handR: "relaxed" };
 }
 
-/** Evaluate any of the 12 reusable studio anime motion clips into a clean PoseSnapshot! */
+/** Evaluate any of the 18 reusable studio anime motion clips (combat + grounded acting!) into a clean PoseSnapshot! */
 export function evaluateAnimeMotion(clip: AnimeMotionClip, p: number, t: number, baseHipsY = 0.96): PoseSnapshot {
   const s = zeroPose(baseHipsY);
   const br = Math.sin(t * 2.6) * 0.024;
@@ -87,20 +93,23 @@ export function evaluateAnimeMotion(clip: AnimeMotionClip, p: number, t: number,
     r.elbowL = [-0.32 - Math.max(0, -sw) * 0.35, 0, 0];
     r.shoulderR = [-sw * 0.42, 0, -0.14];
     r.elbowR = [-0.32 - Math.max(0, sw) * 0.35, 0, 0];
-  } else if (clip === "run" || clip === "sprint_lean") {
+  } else if (clip === "run" || clip === "run_skirt_safe" || clip === "sprint_lean") {
     const fast = clip === "sprint_lean";
-    const cyc = t * (fast ? 12.5 : 9.6);
+    const skirtSafe = clip === "run_skirt_safe";
+    const cyc = t * (fast ? 12.5 : skirtSafe ? 8.8 : 9.6);
     const sw = Math.sin(cyc);
     const liftL = Math.max(0, Math.cos(cyc));
     const liftR = Math.max(0, -Math.cos(cyc));
-    s.hipsY = baseHipsY - 0.05 + Math.abs(Math.sin(cyc)) * 0.065;
-    r.hips = [fast ? 0.36 : 0.18, sw * 0.16, -sw * 0.06];
-    r.spine = [fast ? 0.24 : 0.12, -sw * 0.14, sw * 0.04];
-    r.head = [fast ? -0.44 : -0.22, 0, 0];
-    r.thighL = [-sw * 0.92 - 0.15, 0, 0.05];
-    r.kneeL = [0.22 + liftL * 1.18, 0, 0];
-    r.thighR = [sw * 0.92 - 0.15, 0, -0.05];
-    r.kneeR = [0.22 + liftR * 1.18, 0, 0];
+    const thighAmp = skirtSafe ? 0.54 : 0.92;
+    const kneeAmp = skirtSafe ? 0.82 : 1.18;
+    s.hipsY = baseHipsY - (skirtSafe ? 0.03 : 0.05) + Math.abs(Math.sin(cyc)) * (skirtSafe ? 0.045 : 0.065);
+    r.hips = [fast ? 0.36 : skirtSafe ? 0.12 : 0.18, sw * 0.14, -sw * 0.05];
+    r.spine = [fast ? 0.24 : skirtSafe ? 0.10 : 0.12, -sw * 0.12, sw * 0.04];
+    r.head = [fast ? -0.44 : skirtSafe ? -0.14 : -0.22, 0, 0];
+    r.thighL = [-sw * thighAmp - (skirtSafe ? 0.08 : 0.15), 0, 0.05];
+    r.kneeL = [0.18 + liftL * kneeAmp, 0, 0];
+    r.thighR = [sw * thighAmp - (skirtSafe ? 0.08 : 0.15), 0, -0.05];
+    r.kneeR = [0.18 + liftR * kneeAmp, 0, 0];
     if (fast) {
       // Classic shinobi / shonen anime aero-sprint arms swept cleanly back!
       r.shoulderL = [1.05, 0.15, 0.32];
@@ -249,21 +258,116 @@ export function evaluateAnimeMotion(clip: AnimeMotionClip, p: number, t: number,
     s.handL = "open";
     s.handR = "open";
   } else if (clip === "kneel_exhausted") {
-    // Dramatic anime one-knee collapse / catching breath!
-    s.hipsY = baseHipsY - 0.36 + br * 0.5;
-    r.spine = [0.38 + br, 0, 0];
-    r.chest = [0.16 + br, 0, 0];
-    r.head = [0.32 - br, 0, 0];
-    r.shoulderL = [-0.28, 0.12, 0.28];
-    r.elbowL = [-0.88, 0, 0];
-    r.shoulderR = [-0.55, -0.10, -0.22];
-    r.elbowR = [-0.18, 0, 0];
-    r.thighL = [-1.25, -0.14, 0.18];
-    r.kneeL = [1.45, 0, 0];
-    r.thighR = [0.25, 0.12, -0.12];
-    r.kneeR = [1.65, 0, 0];
+    // Dramatic anime one-knee collapse / catching breath — head tilted UP slightly so wincing face stays readable!
+    const gasp = Math.sin(t * 5.2) * 0.032;
+    s.hipsY = baseHipsY - 0.34 + gasp * 0.4;
+    r.spine = [0.24 + gasp, 0.04, 0];
+    r.chest = [0.10 + gasp, 0, 0];
+    r.head = [-0.20 - gasp * 0.6, -0.06, 0.04];
+    r.shoulderL = [-0.24, 0.12, 0.26];
+    r.elbowL = [-0.82, 0, 0];
+    r.shoulderR = [-0.48, -0.10, -0.22];
+    r.elbowR = [-0.24, 0, 0];
+    r.thighL = [-1.12, -0.14, 0.16];
+    r.kneeL = [1.32, 0, 0];
+    r.thighR = [0.22, 0.12, -0.12];
+    r.kneeR = [1.55, 0, 0];
     s.handL = "fist";
     s.handR = "open";
+  } else if (clip === "wheeze_knees") {
+    // Grounded anime exhaustion: knees deeply bent, elbows flared with hands braced onto thighs/knees, face tilted UP!
+    const heave = Math.sin(t * 6.4) * 0.042;
+    s.hipsY = baseHipsY - 0.19 + heave * 0.35;
+    r.hips = [0.22, 0, 0];
+    r.spine = [0.34 + heave, 0, Math.sin(t * 2.1) * 0.02];
+    r.chest = [0.16 + heave * 0.8, 0, 0];
+    r.neck = [-0.20, 0, 0];
+    r.head = [-0.34 - heave * 0.6, Math.sin(t * 1.4) * 0.08, 0.04];
+    r.shoulderL = [-0.32, 0.18, 0.34];
+    r.elbowL = [-0.52, 0, -0.34];
+    r.wristL = [0.28, 0, 0];
+    r.shoulderR = [-0.32, -0.18, -0.34];
+    r.elbowR = [-0.52, 0, 0.34];
+    r.wristR = [0.28, 0, 0];
+    r.thighL = [-0.66, -0.16, 0.16];
+    r.kneeL = [0.92, 0, 0];
+    r.ankleL = [-0.26, 0, 0];
+    r.thighR = [-0.60, 0.16, -0.16];
+    r.kneeR = [0.86, 0, 0];
+    r.ankleR = [-0.26, 0, 0];
+    s.handL = "open";
+    s.handR = "open";
+  } else if (clip === "inspect_prop") {
+    // Grounded anime close inspection: holds flask/notebook/tool up at chest height studying it intently!
+    const tilt = Math.sin(t * 1.9) * 0.06;
+    s.hipsY = baseHipsY + Math.sin(t * 2.2) * 0.008;
+    r.spine = [0.06, -0.14, 0];
+    r.chest = [br, -0.08, 0];
+    r.head = [0.12 - br * 0.4, 0.16 + tilt * 0.5, 0.06 + tilt * 0.4];
+    r.shoulderR = [-0.62 + tilt * 0.3, -0.26, -0.18];
+    r.elbowR = [-1.18, 0.12, 0.22];
+    r.wristR = [-0.18, 0.25 + tilt, 0.10];
+    r.shoulderL = [-0.24, 0.20, 0.22];
+    r.elbowL = [-0.95, 0, -0.16];
+    r.thighL = [-0.04, -0.08, 0.08];
+    r.kneeL = [0.06, 0, 0];
+    r.thighR = [0.05, 0.08, -0.08];
+    r.kneeR = [0.05, 0, 0];
+    s.handR = "grip_blade";
+    s.handL = "relaxed";
+  } else if (clip === "write_board") {
+    // Grounded classroom/lab acting: angled slightly toward board sketching equations with smooth right-hand strokes!
+    const strokeX = Math.sin(t * 5.6) * 0.14;
+    const strokeY = Math.cos(t * 3.8) * 0.09;
+    s.hipsY = baseHipsY + Math.sin(t * 2.0) * 0.008;
+    r.spine = [0.03, 0.24, 0];
+    r.chest = [br, 0.18, 0];
+    r.head = [-0.04, -0.22 + Math.sin(t * 1.4) * 0.08, 0.03];
+    r.shoulderR = [-1.24 + strokeY, -0.16 + strokeX, -0.22];
+    r.elbowR = [-0.46 + strokeY * 0.5, 0, 0.12];
+    r.wristR = [0.18 + strokeX * 0.4, 0, 0];
+    r.shoulderL = [0.10, 0.08, 0.18];
+    r.elbowL = [-0.52, 0, -0.10];
+    r.thighL = [-0.05, -0.06, 0.08];
+    r.thighR = [0.05, 0.08, -0.08];
+    s.handR = "point_up";
+    s.handL = "relaxed";
+  } else if (clip === "talk_gesture") {
+    // Natural expressive anime monologue / explanation pose (zero superhero/magic stiffness!)
+    const beat = Math.sin(t * 3.6);
+    const beat2 = Math.cos(t * 2.4);
+    s.hipsY = baseHipsY + Math.sin(t * 2.2) * 0.010;
+    r.spine = [0.02, -0.10 + beat2 * 0.04, beat * 0.02];
+    r.chest = [br, -0.06, 0];
+    r.head = [0.02 + beat * 0.04, 0.12 + beat2 * 0.08, beat * 0.04];
+    r.shoulderR = [-0.42 + beat * 0.12, -0.18, -0.24 - Math.abs(beat) * 0.08];
+    r.elbowR = [-1.06 + beat * 0.16, 0, 0.18];
+    r.wristR = [-0.15 + beat * 0.22, 0.18, 0];
+    r.shoulderL = [0.12, -0.04, 0.18];
+    r.elbowL = [-0.48 + beat2 * 0.08, 0, -0.08];
+    r.thighL = [-0.04, -0.08, 0.07];
+    r.kneeL = [0.06, 0, 0];
+    r.thighR = [0.05, 0.08, -0.07];
+    r.kneeR = [0.05, 0, 0];
+    s.handR = beat > 0.25 ? "point_up" : "open";
+    s.handL = "relaxed";
+  } else if (clip === "sit_desk") {
+    // Seated studying / crafting posture at desk or workbench!
+    const write = Math.sin(t * 4.8) * 0.06;
+    s.hipsY = baseHipsY - 0.34;
+    r.spine = [0.16 + br * 0.5, -0.04, 0];
+    r.chest = [0.08, 0, 0];
+    r.head = [0.14 - br * 0.4, 0.06 + Math.sin(t * 1.3) * 0.06, 0.03];
+    r.shoulderL = [-0.52, 0.14, 0.22];
+    r.elbowL = [-1.05, 0, -0.18];
+    r.shoulderR = [-0.58 + write, -0.14, -0.22];
+    r.elbowR = [-1.02 - write, 0, 0.18];
+    r.thighL = [-1.42, -0.10, 0.08];
+    r.kneeL = [1.46, 0, 0];
+    r.thighR = [-1.42, 0.10, -0.08];
+    r.kneeR = [1.46, 0, 0];
+    s.handL = "open";
+    s.handR = "point_up";
   }
 
   return s;
