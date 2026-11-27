@@ -10,7 +10,7 @@ export const RemotionRoot: React.FC = () => {
       <Composition
         id="EpisodeCastSheet3D"
         component={CastSheet3D}
-        durationInFrames={4}
+        durationInFrames={6}
         fps={30}
         width={1600}
         height={1000}

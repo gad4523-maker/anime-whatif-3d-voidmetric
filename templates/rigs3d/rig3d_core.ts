@@ -688,6 +688,18 @@ export type RigJoints = {
   extra?: Record<string, THREE.Group>;
 };
 
+export type AnimeExpr =
+  | "neutral"
+  | "smirk"
+  | "grin"
+  | "serious"
+  | "intense"
+  | "snarl"
+  | "shout"
+  | "shock"
+  | "pain"
+  | "smug_closed";
+
 export interface AnimeRig3D {
   name: string;
   root: THREE.Group;
@@ -696,6 +708,8 @@ export interface AnimeRig3D {
   handR: Hand3D;
   setPose: (pose: string, t?: number) => void;
   setAction?: (action: string, p: number, t: number) => void;
+  /** Swap live facial expression mid-shot (with deterministic natural eye-blinking & optional lip-flap!) */
+  setExpr?: (expr: AnimeExpr | string, t?: number, talk?: boolean) => void;
   setXRayRig: (on: boolean) => void;
   getBoneCount: () => number;
 }
@@ -875,7 +889,11 @@ export type AnimeFaceOpts = {
   irisDarkColor?: string;
   browColor?: string;
   lashColor?: string;
-  expr?: "smirk" | "serious" | "intense" | "grin" | "snarl" | "shock";
+  expr?: AnimeExpr;
+  /** Draw closed anime blinking eyelids while preserving eyebrows, mouth & custom scars/markings! */
+  blink?: boolean;
+  /** Optional talking/shouting lip-flap state: 0 = expression default, 1 = half-open syllable, 2 = wide-open syllable */
+  mouthOpen?: 0 | 1 | 2;
   eyeShape?: "sharp_shonen" | "wide_hero" | "narrow_cool";
   eyeScale?: number;
   /** Optional character-specific overlay (e.g. Senku's stone cracks, Sukuna's markings, Gojo's Six Eyes, Luffy's scar!) */
@@ -884,8 +902,8 @@ export type AnimeFaceOpts = {
 
 /**
  * Paint a studio-grade 1024x1024 shonen anime face texture calibrated 1:1 to `buildAnimeHead3D`'s planar front UVs!
- * Features authentic large anime eye proportions (~24% face height), winged upper lashes, multi-ring glowing irises,
- * twin bright catchlights, expressive angled brows, subtle cel cheekbone shadows, and expressive anime mouths.
+ * Supports 10 rich anime expressions (`neutral`, `smirk`, `grin`, `serious`, `intense`, `snarl`, `shout`, `shock`,
+ * `pain`, `smug_closed`) + live `blink` eyelids + `mouthOpen` lip-flap while preserving `customDraw` scars/markings!
  */
 export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture {
   const skin = opts.skinColor ?? "#f5d0b5";
@@ -895,7 +913,9 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
   const irisDark = opts.irisDarkColor ?? "#3a0812";
   const browCol = opts.browColor ?? "#1a141c";
   const lashCol = opts.lashColor ?? "#120a18";
-  const expr = opts.expr ?? "smirk";
+  const expr: AnimeExpr = opts.expr ?? "smirk";
+  const blink = opts.blink ?? false;
+  const mouthOpen = opts.mouthOpen ?? 0;
   const eyeShape = opts.eyeShape ?? "sharp_shonen";
   const eScale = opts.eyeScale ?? 1.0;
 
@@ -932,117 +952,176 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
       ctx.fillRect(bx - 75, by - 75, 150, 150);
     }
 
-    // 3. Large Expressive Shonen Anime Eyes (symmetric crisp winged lashes + multi-ring iris + catchlights!)
-    const intense = expr === "intense" || expr === "snarl";
+    // 3. Large Expressive Shonen Anime Eyes (symmetric crisp winged lashes + multi-ring iris + catchlights + blink/pain/smug!)
+    const intense = expr === "intense" || expr === "snarl" || expr === "shout";
     const shock = expr === "shock";
+    const pain = expr === "pain";
+    const smugClosed = expr === "smug_closed";
     for (const s of [-1, 1]) {
       const ex = cx + s * eyeDx;
       ctx.save();
       ctx.translate(ex, eyeY);
       ctx.scale(s, 1); // local +X points toward OUTER ear edge, -X points toward nose bridge!
 
-      const topDrop = intense ? 12 : shock ? -10 : 0;
-      const openMul = shock ? 1.16 : intense ? 0.90 : 1.0;
+      const topDrop = intense ? 14 : shock ? -12 : expr === "serious" ? 6 : 0;
+      const openMul = shock ? 1.18 : intense ? 0.88 : expr === "serious" ? 0.94 : 1.0;
       const hh = eyeH * openMul;
 
-      // Sclera silhouette (classic angled shonen pentagon/almond!)
-      ctx.beginPath();
-      ctx.moveTo(-eyeW * 0.76, hh * 0.18);
-      ctx.quadraticCurveTo(-eyeW * 0.12, -hh * 0.62 + topDrop, eyeW * 0.84, -hh * 0.28 + topDrop * 0.5);
-      ctx.lineTo(eyeW * 0.66, hh * 0.34);
-      ctx.quadraticCurveTo(0, hh * 0.52, -eyeW * 0.68, hh * 0.36);
-      ctx.closePath();
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
+      if (pain) {
+        // Classic anime squeezed-shut wincing `> <` eyes (intense recoil/pain!)
+        ctx.strokeStyle = lashCol;
+        ctx.lineWidth = 14;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(eyeW * 0.68, -hh * 0.34);
+        ctx.lineTo(-eyeW * 0.46, hh * 0.06);
+        ctx.lineTo(eyeW * 0.64, hh * 0.36);
+        ctx.stroke();
+        // Strain crease lines around wincing eye
+        ctx.strokeStyle = "rgba(80, 42, 34, 0.55)";
+        ctx.lineWidth = 4.5;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.58, -hh * 0.24);
+        ctx.lineTo(-eyeW * 0.22, -hh * 0.12);
+        ctx.moveTo(-eyeW * 0.56, hh * 0.34);
+        ctx.lineTo(-eyeW * 0.18, hh * 0.22);
+        ctx.stroke();
+      } else if (smugClosed) {
+        // Iconic cocky/happy closed arched `^ ^` anime eyes (Senku genius chuckle / Gojo tease!)
+        ctx.fillStyle = lashCol;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.72, hh * 0.22);
+        ctx.quadraticCurveTo(0, -hh * 0.46, eyeW * 0.82, hh * 0.12);
+        ctx.lineTo(eyeW * 0.72, hh * 0.26);
+        ctx.quadraticCurveTo(0, -hh * 0.20, -eyeW * 0.64, hh * 0.30);
+        ctx.closePath();
+        ctx.fill();
+        // Delicate lower laugh-lid hint
+        ctx.strokeStyle = "rgba(130, 74, 58, 0.50)";
+        ctx.lineWidth = 4.0;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.44, hh * 0.42);
+        ctx.quadraticCurveTo(0, hh * 0.26, eyeW * 0.48, hh * 0.40);
+        ctx.stroke();
+      } else if (blink) {
+        // Natural mid-blink downward sweeping anime closed lashes!
+        ctx.fillStyle = lashCol;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.76, hh * 0.14);
+        ctx.quadraticCurveTo(0, hh * 0.44, eyeW * 0.86, hh * 0.08);
+        ctx.lineTo(eyeW * 0.78, hh * 0.24);
+        ctx.quadraticCurveTo(0, hh * 0.56, -eyeW * 0.68, hh * 0.26);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = "rgba(74, 42, 34, 0.45)";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.54, -hh * 0.14);
+        ctx.quadraticCurveTo(0, -hh * 0.24, eyeW * 0.60, -hh * 0.12);
+        ctx.stroke();
+      } else {
+        // Sclera silhouette (classic angled shonen pentagon/almond!)
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.76, hh * 0.18);
+        ctx.quadraticCurveTo(-eyeW * 0.12, -hh * 0.62 + topDrop, eyeW * 0.84, -hh * 0.28 + topDrop * 0.5);
+        ctx.lineTo(eyeW * 0.66, hh * 0.34);
+        ctx.quadraticCurveTo(0, hh * 0.52, -eyeW * 0.68, hh * 0.36);
+        ctx.closePath();
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
 
-      // Clipped sclera shadow + detailed multi-ring anime iris
-      ctx.save();
-      ctx.clip();
+        // Clipped sclera shadow + detailed multi-ring anime iris
+        ctx.save();
+        ctx.clip();
 
-      // Crisp upper-eyelid cast shadow across top of sclera
-      ctx.fillStyle = "rgba(128, 120, 162, 0.34)";
-      ctx.fillRect(-eyeW, -hh * 0.75, eyeW * 2, hh * 0.42 + topDrop * 0.4);
+        // Crisp upper-eyelid cast shadow across top of sclera
+        ctx.fillStyle = "rgba(128, 120, 162, 0.34)";
+        ctx.fillRect(-eyeW, -hh * 0.75, eyeW * 2, hh * 0.42 + topDrop * 0.4);
 
-      // Iris center slightly inward & vertical oval like modern anime (Dr. STONE / JJK / DBFZ)
-      const ix = -eyeW * 0.03;
-      const iy = hh * 0.04 + topDrop * 0.25;
-      const irx = (shock ? 32 : 48) * eScale;
-      const iry = (shock ? 36 : 54) * eScale;
+        // Iris center slightly inward & vertical oval like modern anime (Dr. STONE / JJK / DBFZ)
+        const ix = -eyeW * 0.03;
+        const iy = hh * 0.04 + topDrop * 0.25;
+        const irx = (shock ? 28 : expr === "snarl" ? 42 : 48) * eScale;
+        const iry = (shock ? 31 : expr === "snarl" ? 48 : 54) * eScale;
 
-      // Outer dark limbal ring
-      ctx.fillStyle = irisDark;
-      ctx.beginPath();
-      ctx.ellipse(ix, iy, irx + 4, iry + 4, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // Outer dark limbal ring
+        ctx.fillStyle = irisDark;
+        ctx.beginPath();
+        ctx.ellipse(ix, iy, irx + 4, iry + 4, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Rich radial anime iris gradient (deep upper shadow -> luminous vivid lower crescent!)
-      const ig = ctx.createLinearGradient(ix, iy - iry, ix, iy + iry);
-      ig.addColorStop(0.0, irisDark);
-      ig.addColorStop(0.32, iris);
-      ig.addColorStop(0.75, irisInner);
-      ig.addColorStop(1.0, iris);
-      ctx.fillStyle = ig;
-      ctx.beginPath();
-      ctx.ellipse(ix, iy, irx, iry, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // Rich radial anime iris gradient (deep upper shadow -> luminous vivid lower crescent!)
+        const ig = ctx.createLinearGradient(ix, iy - iry, ix, iy + iry);
+        ig.addColorStop(0.0, irisDark);
+        ig.addColorStop(0.32, iris);
+        ig.addColorStop(0.75, irisInner);
+        ig.addColorStop(1.0, iris);
+        ctx.fillStyle = ig;
+        ctx.beginPath();
+        ctx.ellipse(ix, iy, irx, iry, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Luminous lower anime bounce crescent inside iris
-      ctx.fillStyle = "rgba(255, 250, 240, 0.42)";
-      ctx.beginPath();
-      ctx.ellipse(ix, iy + iry * 0.38, irx * 0.62, iry * 0.26, 0, 0, Math.PI * 2);
-      ctx.fill();
+        // Luminous lower anime bounce crescent inside iris
+        ctx.fillStyle = "rgba(255, 250, 240, 0.42)";
+        ctx.beginPath();
+        ctx.ellipse(ix, iy + iry * 0.38, irx * 0.62, iry * 0.26, 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Crisp dark pupil
-      ctx.fillStyle = "#0e0614";
-      ctx.beginPath();
-      ctx.ellipse(ix, iy - 1, irx * (shock ? 0.34 : 0.42), iry * (shock ? 0.34 : 0.42), 0, 0, Math.PI * 2);
-      ctx.fill();
+        // Crisp dark pupil (pinpoint contracted in shock / focused rage!)
+        ctx.fillStyle = "#0e0614";
+        ctx.beginPath();
+        ctx.ellipse(ix, iy - 1, irx * (shock ? 0.28 : expr === "snarl" ? 0.34 : 0.42), iry * (shock ? 0.28 : expr === "snarl" ? 0.34 : 0.42), 0, 0, Math.PI * 2);
+        ctx.fill();
 
-      // Twin razor-crisp anime specular catchlights!
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.ellipse(ix - irx * 0.38, iy - iry * 0.34, irx * 0.24, iry * 0.22, -0.25, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.arc(ix + irx * 0.36, iy + iry * 0.28, irx * 0.11, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+        // Twin razor-crisp anime specular catchlights!
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.ellipse(ix - irx * 0.38, iy - iry * 0.34, irx * 0.24, iry * 0.22, -0.25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(ix + irx * 0.36, iy + iry * 0.28, irx * 0.11, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
 
-      // Bold tapered winged upper eyelash (iconic sharp anime outer wing!)
-      ctx.fillStyle = lashCol;
-      ctx.beginPath();
-      ctx.moveTo(-eyeW * 0.82, hh * 0.16);
-      ctx.quadraticCurveTo(-eyeW * 0.10, -hh * 0.78 + topDrop, eyeW * 0.96, -hh * 0.42 + topDrop * 0.5);
-      ctx.lineTo(eyeW * 0.84, -hh * 0.14 + topDrop * 0.5);
-      ctx.quadraticCurveTo(-eyeW * 0.08, -hh * 0.52 + topDrop, -eyeW * 0.74, hh * 0.22);
-      ctx.closePath();
-      ctx.fill();
+        // Bold tapered winged upper eyelash (iconic sharp anime outer wing!)
+        ctx.fillStyle = lashCol;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.82, hh * 0.16);
+        ctx.quadraticCurveTo(-eyeW * 0.10, -hh * 0.78 + topDrop, eyeW * 0.96, -hh * 0.42 + topDrop * 0.5);
+        ctx.lineTo(eyeW * 0.84, -hh * 0.14 + topDrop * 0.5);
+        ctx.quadraticCurveTo(-eyeW * 0.08, -hh * 0.52 + topDrop, -eyeW * 0.74, hh * 0.22);
+        ctx.closePath();
+        ctx.fill();
 
-      // Crisp outer corner accent & delicate lower lash line
-      ctx.strokeStyle = lashCol;
-      ctx.lineWidth = 5.5;
-      ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(eyeW * 0.76, hh * 0.22);
-      ctx.quadraticCurveTo(eyeW * 0.14, hh * 0.52, -eyeW * 0.58, hh * 0.38);
-      ctx.stroke();
+        // Crisp outer corner accent & delicate lower lash line
+        ctx.strokeStyle = lashCol;
+        ctx.lineWidth = 5.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(eyeW * 0.76, hh * 0.22);
+        ctx.quadraticCurveTo(eyeW * 0.14, hh * 0.52, -eyeW * 0.58, hh * 0.38);
+        ctx.stroke();
 
-      // Crisp upper eyelid crease line
-      ctx.strokeStyle = "rgba(70, 38, 30, 0.65)";
-      ctx.lineWidth = 3.5;
-      ctx.beginPath();
-      ctx.moveTo(-eyeW * 0.62, -hh * 0.56 + topDrop);
-      ctx.quadraticCurveTo(0, -hh * 0.90 + topDrop, eyeW * 0.74, -hh * 0.54 + topDrop * 0.6);
-      ctx.stroke();
+        // Crisp upper eyelid crease line
+        ctx.strokeStyle = "rgba(70, 38, 30, 0.65)";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(-eyeW * 0.62, -hh * 0.56 + topDrop);
+        ctx.quadraticCurveTo(0, -hh * 0.90 + topDrop, eyeW * 0.74, -hh * 0.54 + topDrop * 0.6);
+        ctx.stroke();
+      }
 
-      // Expressive sharp tapered shonen eyebrow!
-      const browTilt = intense ? 24 : expr === "smirk" || expr === "grin" ? 12 : shock ? -14 : 6;
+      // Expressive sharp tapered shonen eyebrow (raises in shock/smug, slashes down in intense/snarl/shout, furrows upward in pain!)
+      const browTilt = intense ? 28 : pain ? -22 : expr === "smirk" || expr === "grin" ? 13 : shock ? -20 : smugClosed ? -8 : expr === "serious" ? 16 : 6;
+      const browLift = shock ? -26 : smugClosed ? -10 : intense ? 8 : 0;
       ctx.fillStyle = browCol;
       ctx.beginPath();
-      ctx.moveTo(-eyeW * 0.86, -hh * 0.76 + browTilt);
-      ctx.quadraticCurveTo(-eyeW * 0.06, -hh * 1.14 - browTilt * 0.3, eyeW * 0.92, -hh * 0.88 - browTilt * 0.7);
-      ctx.lineTo(eyeW * 0.86, -hh * 0.74 - browTilt * 0.7);
-      ctx.quadraticCurveTo(-eyeW * 0.04, -hh * 0.94 - browTilt * 0.3, -eyeW * 0.80, -hh * 0.58 + browTilt);
+      ctx.moveTo(-eyeW * 0.86, -hh * 0.76 + browTilt + browLift);
+      ctx.quadraticCurveTo(-eyeW * 0.06, -hh * 1.14 - browTilt * 0.28 + browLift, eyeW * 0.92, -hh * 0.88 - browTilt * 0.72 + browLift);
+      ctx.lineTo(eyeW * 0.86, -hh * 0.74 - browTilt * 0.72 + browLift);
+      ctx.quadraticCurveTo(-eyeW * 0.04, -hh * 0.94 - browTilt * 0.28 + browLift, -eyeW * 0.80, -hh * 0.58 + browTilt + browLift);
       ctx.closePath();
       ctx.fill();
 
@@ -1065,65 +1144,221 @@ export function paintAnimeFaceTex(opts: AnimeFaceOpts = {}): THREE.CanvasTexture
     ctx.lineTo(cx + 8, noseY + 10);
     ctx.stroke();
 
-    // 5. Expressive Anime Mouth (Smirk / Grin / Serious / Snarl / Shock!)
+    // 5. Expressive Anime Mouth (10 full expressions + optional live lip-flap override!)
     ctx.save();
     ctx.strokeStyle = "#1c0d18";
     ctx.lineWidth = 6.5;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    if (expr === "grin" || expr === "snarl") {
-      // Confident anime teeth-grin / fierce battle snarl
+
+    if (mouthOpen > 0 && expr !== "shock" && expr !== "shout" && expr !== "snarl" && expr !== "pain") {
+      // Live anime dialogue lip-flap (1 = mid-syllable, 2 = wide syllable)
+      const mw = mouthOpen === 2 ? 52 : 40;
+      const mh = mouthOpen === 2 ? 34 : 20;
       ctx.beginPath();
-      ctx.moveTo(cx - 64, mouthY + (expr === "snarl" ? 8 : 2));
-      ctx.quadraticCurveTo(cx, mouthY - (expr === "snarl" ? 16 : 6), cx + 68, mouthY - 12);
-      ctx.quadraticCurveTo(cx + 6, mouthY + (expr === "snarl" ? 36 : 26), cx - 64, mouthY + (expr === "snarl" ? 8 : 2));
+      ctx.moveTo(cx - mw, mouthY - 2);
+      ctx.quadraticCurveTo(cx, mouthY - 12, cx + mw, mouthY - 4);
+      ctx.quadraticCurveTo(cx + mw * 0.75, mouthY + mh, cx, mouthY + mh);
+      ctx.quadraticCurveTo(cx - mw * 0.75, mouthY + mh, cx - mw, mouthY - 2);
       ctx.closePath();
-      ctx.fillStyle = expr === "snarl" ? "#922234" : "#ffffff";
+      ctx.fillStyle = "#7e1d2f";
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = "#d4556a";
+      ctx.beginPath();
+      ctx.ellipse(cx, mouthY + mh * 0.92, mw * 0.65, mh * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(cx - mw, mouthY - 14, mw * 2, 14);
+      ctx.restore();
+      ctx.stroke();
+    } else if (expr === "shout") {
+      // Wide-open fierce anime battle-cry / technique-call mouth ("10 BILLION PERCENT!" / "DOMAIN EXPANSION!")
+      ctx.beginPath();
+      ctx.moveTo(cx - 86, mouthY - 18);
+      ctx.quadraticCurveTo(cx, mouthY - 34, cx + 86, mouthY - 18);
+      ctx.quadraticCurveTo(cx + 76, mouthY + 56, cx, mouthY + 64);
+      ctx.quadraticCurveTo(cx - 76, mouthY + 56, cx - 86, mouthY - 18);
+      ctx.closePath();
+      ctx.fillStyle = "#76192c";
+      ctx.fill();
+      ctx.save();
+      ctx.clip();
+      ctx.fillStyle = "#d95b6e";
+      ctx.beginPath();
+      ctx.ellipse(cx, mouthY + 52, 56, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(cx - 90, mouthY - 36, 180, 26);
+      ctx.fillRect(cx - 66, mouthY + 52, 132, 16);
+      ctx.restore();
+      ctx.stroke();
+    } else if (expr === "grin" || expr === "snarl") {
+      // Confident gleaming anime teeth-grin / fierce battle snarl (bold mobile-readable silhouette!)
+      ctx.beginPath();
+      ctx.moveTo(cx - 84, mouthY + (expr === "snarl" ? 10 : 2));
+      ctx.quadraticCurveTo(cx, mouthY - (expr === "snarl" ? 22 : 8), cx + 88, mouthY - 18);
+      ctx.quadraticCurveTo(cx + 8, mouthY + (expr === "snarl" ? 48 : 38), cx - 84, mouthY + (expr === "snarl" ? 10 : 2));
+      ctx.closePath();
+      ctx.fillStyle = expr === "snarl" ? "#8c1e32" : "#ffffff";
       ctx.fill();
       ctx.stroke();
       if (expr === "snarl") {
-        // Gleaming upper & lower teeth rows
+        // Gleaming upper & lower bared anime teeth
         ctx.fillStyle = "#ffffff";
         ctx.beginPath();
-        ctx.moveTo(cx - 50, mouthY + 2);
-        ctx.quadraticCurveTo(cx, mouthY - 10, cx + 52, mouthY - 8);
-        ctx.lineTo(cx + 44, mouthY + 8);
-        ctx.quadraticCurveTo(cx, mouthY + 4, cx - 42, mouthY + 10);
+        ctx.moveTo(cx - 66, mouthY + 2);
+        ctx.quadraticCurveTo(cx, mouthY - 14, cx + 68, mouthY - 12);
+        ctx.lineTo(cx + 58, mouthY + 14);
+        ctx.quadraticCurveTo(cx, mouthY + 6, cx - 54, mouthY + 14);
         ctx.closePath();
         ctx.fill();
+      } else {
+        // Subtle anime tooth center seam line on wide cocky grin
+        ctx.strokeStyle = "rgba(40, 22, 32, 0.28)";
+        ctx.lineWidth = 3.5;
+        ctx.beginPath();
+        ctx.moveTo(cx - 58, mouthY + 10);
+        ctx.quadraticCurveTo(cx + 4, mouthY + 16, cx + 64, mouthY - 2);
+        ctx.stroke();
       }
+    } else if (expr === "pain") {
+      // Clenched gritted white anime teeth in strain/pain!
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.roundRect(cx - 68, mouthY - 14, 136, 40, 14);
+      ctx.fill();
+      ctx.stroke();
+      ctx.lineWidth = 4.5;
+      ctx.beginPath();
+      ctx.moveTo(cx - 60, mouthY + 6);
+      ctx.lineTo(cx + 60, mouthY + 6);
+      for (const tx of [-34, 0, 34]) {
+        ctx.moveTo(cx + tx, mouthY - 12);
+        ctx.lineTo(cx + tx, mouthY + 24);
+      }
+      ctx.stroke();
     } else if (expr === "shock") {
       ctx.fillStyle = "#7a1d2e";
       ctx.beginPath();
-      ctx.ellipse(cx, mouthY + 8, 28, 34, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, mouthY + 12, 38, 46, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
-    } else if (expr === "serious") {
+    } else if (expr === "serious" || expr === "intense") {
       ctx.beginPath();
-      ctx.moveTo(cx - 46, mouthY + 4);
-      ctx.quadraticCurveTo(cx, mouthY + 1, cx + 46, mouthY + 4);
+      ctx.moveTo(cx - 58, mouthY + (expr === "intense" ? 10 : 4));
+      ctx.quadraticCurveTo(cx, mouthY - (expr === "intense" ? 6 : 0), cx + 58, mouthY + (expr === "intense" ? 10 : 4));
+      ctx.stroke();
+    } else if (expr === "neutral") {
+      ctx.beginPath();
+      ctx.moveTo(cx - 42, mouthY + 4);
+      ctx.quadraticCurveTo(cx, mouthY + 10, cx + 42, mouthY + 2);
       ctx.stroke();
     } else {
-      // Iconic confident shonen smirk (Senku / Gojo!)
+      // Iconic confident shonen smirk (smirk / smug_closed — Senku & Gojo!)
       ctx.beginPath();
-      ctx.moveTo(cx - 54, mouthY + 6);
-      ctx.quadraticCurveTo(cx + 4, mouthY + 16, cx + 66, mouthY - 12);
+      ctx.moveTo(cx - 68, mouthY + 6);
+      ctx.quadraticCurveTo(cx + 4, mouthY + 20, cx + 80, mouthY - 16);
       ctx.stroke();
     }
     // Crisp lower-lip shadow tick
     ctx.strokeStyle = "rgba(148, 86, 66, 0.58)";
     ctx.lineWidth = 4.5;
     ctx.beginPath();
-    ctx.moveTo(cx - 18, mouthY + 28);
-    ctx.quadraticCurveTo(cx, mouthY + 32, cx + 18, mouthY + 28);
+    ctx.moveTo(cx - 18, mouthY + (expr === "shout" ? 60 : 30));
+    ctx.quadraticCurveTo(cx, mouthY + (expr === "shout" ? 64 : 34), cx + 18, mouthY + (expr === "shout" ? 60 : 30));
     ctx.stroke();
     ctx.restore();
 
-    // 6. Optional Character-Specific Face Details (cracks, scars, markings, freckles, glowing runes!)
+    // 6. Optional Character-Specific Face Details (cracks, scars, markings, freckles, glowing runes — preserved across ALL expressions!)
     if (opts.customDraw) {
       opts.customDraw(ctx, w, h, layout);
     }
   });
+}
+
+export type AnimeFaceController = {
+  /** Initial face texture to pass into `makeAnimeMat({ map: faceCtrl.initialTex, isFace: true })` */
+  initialTex: THREE.CanvasTexture;
+  /** Bind the face ShaderMaterial so `setExpr()` swaps textures with zero overhead! */
+  attachMaterial: (mat: THREE.ShaderMaterial) => void;
+  /**
+   * Switch expression live mid-shot with deterministic natural anime eye-blinking (~every 3.4 s) & optional lip-flap!
+   * Lazy-caches each `(expr, blink, mouthOpen)` texture so startup & per-frame cost stay near zero!
+   */
+  setExpr: (expr: AnimeExpr | string, t?: number, talk?: boolean, autoBlink?: boolean) => void;
+  /** Retrieve any specific expression texture directly (e.g. for Expression Turnaround Grids!) */
+  getTexture: (expr: AnimeExpr, blink?: boolean, mouthOpen?: 0 | 1 | 2) => THREE.CanvasTexture;
+};
+
+const VALID_ANIME_EXPRS = new Set<string>([
+  "neutral", "smirk", "grin", "serious", "intense", "snarl", "shout", "shock", "pain", "smug_closed",
+]);
+
+/**
+ * Creates a lazy-cached Live Expression, Auto-Blink & Lip-Flap Controller for ANY `buildAnimeHead3D` character!
+ * Preserves character-specific `customDraw` scars/markings automatically across every expression & blink state.
+ */
+export function createAnimeFaceController(
+  baseOpts: Omit<AnimeFaceOpts, "blink" | "mouthOpen"> = {}
+): AnimeFaceController {
+  const cache = new Map<string, THREE.CanvasTexture>();
+  let boundMat: THREE.ShaderMaterial | null = null;
+  let lastKey = "";
+
+  const normalizeExpr = (raw: string): AnimeExpr => {
+    if (VALID_ANIME_EXPRS.has(raw)) return raw as AnimeExpr;
+    if (raw === "normal" || raw === "calm") return "neutral";
+    if (raw === "angry" || raw === "rage" || raw === "hakai") return "intense";
+    if (raw === "happy" || raw === "laugh") return "grin";
+    return baseOpts.expr ?? "smirk";
+  };
+
+  const getTexture = (expr: AnimeExpr, blink = false, mouthOpen: 0 | 1 | 2 = 0): THREE.CanvasTexture => {
+    const key = `${expr}|${blink ? 1 : 0}|${mouthOpen}`;
+    let tex = cache.get(key);
+    if (!tex) {
+      tex = paintAnimeFaceTex({ ...baseOpts, expr, blink, mouthOpen });
+      cache.set(key, tex);
+    }
+    return tex;
+  };
+
+  const initialExpr = baseOpts.expr ?? "smirk";
+  const initialTex = getTexture(initialExpr, false, 0);
+
+  return {
+    initialTex,
+    attachMaterial: (mat) => {
+      boundMat = mat;
+    },
+    getTexture,
+    setExpr: (rawExpr, t = -1, talk = false, autoBlink = true) => {
+      const expr = normalizeExpr(rawExpr);
+      // Natural deterministic 4-frame anime eye blink every ~3.4 s (disabled during shock/pain/smug_closed/shout/snarl!)
+      const canBlink =
+        autoBlink &&
+        t >= 0 &&
+        expr !== "shock" &&
+        expr !== "pain" &&
+        expr !== "smug_closed" &&
+        expr !== "shout" &&
+        expr !== "snarl";
+      const cycle = t >= 0 ? ((t + 1.15) % 3.4) : 99;
+      const isBlink = canBlink && cycle < 0.13;
+      // Deterministic anime dialogue lip-flap when `talk === true`
+      const mOpen: 0 | 1 | 2 = talk && t >= 0 ? (([0, 1, 2, 1, 2, 0] as const)[Math.floor(t * 9.0) % 6]) : 0;
+
+      const key = `${expr}|${isBlink ? 1 : 0}|${mOpen}`;
+      if (key === lastKey) return;
+      lastKey = key;
+      const tex = getTexture(expr, isBlink, mOpen);
+      if (boundMat && boundMat.uniforms?.uMap) {
+        boundMat.uniforms.uMap.value = tex;
+      }
+    },
+  };
 }
 
 /**

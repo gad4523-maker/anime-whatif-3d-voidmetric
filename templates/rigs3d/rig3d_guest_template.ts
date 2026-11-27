@@ -1,15 +1,18 @@
 // Voidmetric 3D Anime Guest Character Rig Template (Dragon Ball FighterZ / Modern Shonen 3D Style)
 // Duplicate & customize this file for each episode's iconic anime/manga character (e.g. Senku, Gojo, Sukuna, Goku, Madara).
 //
-// MANDATORY ANIME ACCURACY, FACE & PROPORTION RULES:
-// 1. ALWAYS use `buildAnimeHead3D()` + `paintAnimeFaceTex()` + `makeAnimeMat({ isFace: true })` from `rig3d_core.ts`
+// MANDATORY ANIME ACCURACY, FACE, EXPRESSION & PROPORTION RULES:
+// 1. ALWAYS use `buildAnimeHead3D()` + `createAnimeFaceController()` + `makeAnimeMat({ isFace: true })` from `rig3d_core.ts`
 //    for humanoid anime characters! NEVER sculpt a head with plain circular/elliptical rings or a sphere!
-// 2. Use `customDraw` inside `paintAnimeFaceTex()` for signature facial markings (Senku's stone cracks, Sukuna's markings, scars).
+// 2. Use `customDraw` inside `createAnimeFaceController()` for signature facial markings (Senku's stone cracks, Sukuna's markings, scars)
+//    so markings persist automatically across ALL 10 live expressions (`neutral`, `smirk`, `grin`, `serious`, `intense`, `snarl`,
+//    `shout`, `shock`, `pain`, `smug_closed`) + natural eye-blinking + talking lip-flap!
 // 3. Sculpt curved S-wave multi-lock 3D anime hair via `sculptCurveTube` with varied widths & bangs framing (NOT covering!) the eyes.
 // 4. Match exact canonical 7-head-tall shonen body proportions, flared collars, layered garments, footwear & signature accessories!
 // 5. Clamp any `Math.pow(base, exp)` calls with `Math.max(0, base)` to prevent NaN bloom blackouts!
 import * as THREE from "three";
 import {
+  AnimeExpr,
   AnimeRig3D,
   RigJoints,
   RingSpec,
@@ -18,14 +21,14 @@ import {
   attachBoneVisualizer,
   buildAnimeHead3D,
   buildHand3D,
+  createAnimeFaceController,
   loftRings,
   makeAnimeMat,
-  paintAnimeFaceTex,
   sculptCurveTube,
   sculptLimbGeo,
 } from "./rig3d_core";
 
-export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): AnimeRig3D {
+export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean; expr?: AnimeExpr }): AnimeRig3D {
   const root = new THREE.Group();
   root.name = "GuestAnimeRig3D";
 
@@ -38,27 +41,29 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
     specStrength: 0.06,
     isFace: true,
   });
-  const faceTex = paintAnimeFaceTex({
+  const defaultExpr: AnimeExpr = opts?.expr ?? (opts?.intense ? "snarl" : "smirk");
+  const faceCtrl = createAnimeFaceController({
     skinColor: "#f5d0b5",
     skinShade: "#d49a7c",
     irisColor: opts?.intense ? "#d62cff" : "#2278ff",
     irisInnerColor: opts?.intense ? "#ff9eff" : "#8ee6ff",
     irisDarkColor: opts?.intense ? "#3b0652" : "#0b2458",
     browColor: "#1d1a26",
-    expr: opts?.intense ? "snarl" : "smirk",
+    expr: defaultExpr,
     eyeShape: "sharp_shonen",
     eyeScale: 1.0,
   });
   const mFace = makeAnimeMat({
     color: "#ffffff",
     shadowColor: "#cfa088",
-    map: faceTex,
+    map: faceCtrl.initialTex,
     rimColor: "#ffe8d6",
     rimPower: 3.6,
     rimStrength: 0.30,
     specStrength: 0.04,
     isFace: true,
   });
+  faceCtrl.attachMaterial(mFace);
   const mSuit = makeAnimeMat({
     color: "#222636",
     shadowColor: "#0f121e",
@@ -267,6 +272,10 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
 
   const { overlay, boneCount } = attachBoneVisualizer(joints);
 
+  const setExpr = (expr: AnimeExpr | string, t = -1, talk = false) => {
+    faceCtrl.setExpr(expr, t, talk, true);
+  };
+
   const setPose = (pose: string, t = 0) => {
     const breath = Math.sin(t * 2.4) * 0.016;
     hips.position.set(0, 0.99 + breath, 0);
@@ -280,6 +289,7 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
     legR.kn.rotation.set(0, 0, 0);
 
     if (pose === "power_point") {
+      setExpr(opts?.intense ? "shout" : "grin", t);
       armR.sh.rotation.set(-1.35, 0.12, -0.22);
       armR.el.rotation.set(-0.26, 0, 0);
       armR.hand.setGesture("point_up");
@@ -287,6 +297,7 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
       armL.el.rotation.set(-0.38, 0, 0);
       armL.hand.setGesture("fist");
     } else if (pose === "a_pose") {
+      setExpr("neutral", -1);
       armR.sh.rotation.set(0, 0, -0.45);
       armR.el.rotation.set(0, 0, 0);
       armR.hand.setGesture("open");
@@ -294,6 +305,7 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
       armL.el.rotation.set(0, 0, 0);
       armL.hand.setGesture("open");
     } else {
+      setExpr(defaultExpr, t);
       armR.sh.rotation.set(0.06, 0, -0.15);
       armR.el.rotation.set(-0.20, 0, 0);
       armR.hand.setGesture("relaxed");
@@ -316,6 +328,7 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
     handR: armR.hand,
     setPose,
     setAction,
+    setExpr,
     setXRayRig: (on: boolean) => applyXRayMode(root, overlay, on),
     getBoneCount: () => boneCount,
   };

@@ -23,11 +23,12 @@ import {
   smStep,
 } from "./rig3d_core";
 
-export type MCExpr3D = "normal" | "hakai" | "shock" | "pain";
+export type MCExpr3D = "normal" | "hakai" | "shock" | "pain" | "blink" | "shout";
 
 function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
-  const hakaiGlow = expr === "hakai" || expr === "pain";
+  const hakaiGlow = expr === "hakai" || expr === "pain" || expr === "shout";
   const wide = expr === "shock" || expr === "pain";
+  const isBlink = expr === "blink";
   return makeCanvasTex(1024, 1024, (ctx, w, h) => {
     ctx.fillStyle = "#f2c9a2";
     ctx.fillRect(0, 0, w, h);
@@ -60,6 +61,16 @@ function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
       const ex = cx + s * eyeDx;
       ctx.save();
 
+      if (isBlink) {
+        // Natural crisp anime eye-blink behind MC's glasses!
+        ctx.strokeStyle = "#140b1c";
+        ctx.lineWidth = 9.5;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(ex - s * 50, eyeY + 12);
+        ctx.quadraticCurveTo(ex, eyeY + 26, ex + s * 54, eyeY + 8);
+        ctx.stroke();
+      } else {
       const openH = wide ? 34 : 26;
       ctx.beginPath();
       ctx.moveTo(ex - s * 52, eyeY + 8);
@@ -119,6 +130,7 @@ function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
       ctx.moveTo(ex - s * 42, eyeY + 21);
       ctx.quadraticCurveTo(ex, eyeY + (wide ? 32 : 27), ex + s * 42, eyeY + 22);
       ctx.stroke();
+      }
 
       // Dynamic Anime Eyebrows (raised shocked / fierce furrowed / determined!)
       ctx.strokeStyle = "#16111c";
@@ -159,12 +171,12 @@ function makeMCFaceTex(expr: MCExpr3D = "normal"): THREE.CanvasTexture {
 
     // ---- Expressive Shonen Mouth (smirk / shocked gasp / gritted teeth!) ----
     const mY = h * 0.642;
-    if (expr === "shock") {
-      ctx.fillStyle = "#4c1424";
+    if (expr === "shock" || expr === "shout") {
+      ctx.fillStyle = "#5a1426";
       ctx.strokeStyle = "#160a16";
       ctx.lineWidth = 5.4;
       ctx.beginPath();
-      ctx.ellipse(cx, mY + 6, 28, 20, 0, 0, Math.PI * 2);
+      ctx.ellipse(cx, mY + 6, expr === "shout" ? 36 : 28, expr === "shout" ? 26 : 20, 0, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     } else if (expr === "pain") {
@@ -293,6 +305,8 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     hakai: makeMCFaceTex("hakai"),
     shock: makeMCFaceTex("shock"),
     pain: makeMCFaceTex("pain"),
+    blink: makeMCFaceTex("blink"),
+    shout: makeMCFaceTex("shout"),
   };
   const faceMat = makeAnimeMat({
     color: "#ffffff",
@@ -719,9 +733,25 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
   };
   setPose("wake_orb", 0);
 
-  const setExpr = (expr: MCExpr3D) => {
+  const setExpr = (rawExpr: MCExpr3D | string, t = -1) => {
+    let expr: MCExpr3D =
+      rawExpr === "hakai" || rawExpr === "intense" || rawExpr === "snarl"
+        ? "hakai"
+        : rawExpr === "shock"
+        ? "shock"
+        : rawExpr === "pain"
+        ? "pain"
+        : rawExpr === "shout"
+        ? "shout"
+        : rawExpr === "blink"
+        ? "blink"
+        : "normal";
+    // Natural deterministic anime eye-blink every ~3.4 s during calm `normal` expression!
+    if (expr === "normal" && t >= 0 && ((t + 0.85) % 3.4) < 0.13) {
+      expr = "blink";
+    }
     faceMat.uniforms.uMap.value = faceTextures[expr];
-    const glow = expr === "hakai" || expr === "pain";
+    const glow = expr === "hakai" || expr === "pain" || expr === "shout";
     faceMat.uniforms.uRimColor.value.set(glow ? "#ec9eff" : "#ffe4d4");
     faceMat.uniforms.uRimStrength.value = glow ? 0.52 : 0.30;
     hairMat.uniforms.uRimColor.value.set(glow ? "#d47aff" : "#6c76a8");
@@ -935,6 +965,7 @@ export function buildMCRig3D(opts: { hakaiEyes?: boolean } = {}): AnimeRig3D {
     handR,
     setPose,
     setAction,
+    setExpr,
     setXRayRig: (on) => applyXRayMode(root, overlay, on),
     getBoneCount: () => boneCount,
   };

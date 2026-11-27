@@ -1,8 +1,10 @@
-// Stage 4 Mandatory 3D Character Rig Studio Showcase (1600x1000, 4 plates: frames 0..3)
+// Stage 4 Mandatory 3D Character Rig Studio Showcase (1600x1000, 6 plates: frames 0..5)
 //   f0: Guest Character 4-Panel Turnaround + Action Pose + X-Ray Skeleton
-//   f1: Guest Character Dual Extreme Face & Expression Close-Ups
+//   f1: Guest Character Dual Extreme Face & 3/4 Profile Close-Ups
 //   f2: Locked Channel MC 4-Panel Turnaround + X-Ray Skeleton
 //   f3: Full Cast Canon Scale Lineup (Guest + Locked Channel MC side-by-side!)
+//   f4: Guest Live Facial Expressions Sheet A (SMIRK | GRIN | SHOUT | SHOCK)
+//   f5: Guest Live Facial Expressions Sheet B (INTENSE | SNARL | PAIN | SMUG CLOSED)
 import React, { useMemo } from "react";
 import * as THREE from "three";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
@@ -78,7 +80,7 @@ const StudioScene: React.FC = () => {
     root.add(key);
 
     const stages: THREE.Group[] = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 6; i++) {
       const sg = new THREE.Group();
       sg.visible = false;
       root.add(sg);
@@ -188,16 +190,34 @@ const StudioScene: React.FC = () => {
       s.add(mc.root);
     }
 
+    // Stage 4 & Stage 5: Guest Live 8-Expression Facial Showcase Sheets (verifying live `setExpr` swaps!)
+    const exprGroups: [string[], number][] = [
+      [["smirk", "grin", "shout", "shock"], 4],
+      [["intense", "snarl", "pain", "smug_closed"], 5],
+    ];
+    for (const [exprs, stIdx] of exprGroups) {
+      const s = stages[stIdx];
+      const xs = [-0.90, -0.30, 0.30, 0.90];
+      exprs.forEach((ex, i) => {
+        const g = buildGuestRig3D({ intense: false });
+        g.setPose("idle", 0);
+        g.setExpr?.(ex, -1, false);
+        g.root.position.set(xs[i], 0, 0);
+        g.root.rotation.y = i < 2 ? 0.10 : -0.10;
+        s.add(g.root);
+      });
+    }
+
     return { root, stages };
   }, []);
 
-  const idx = Math.max(0, Math.min(3, f));
+  const idx = Math.max(0, Math.min(5, f));
   world.stages.forEach((sg, i) => {
     sg.visible = i === idx;
   });
 
   ANIME_LIGHT.uLightDir.value.set(0.45, 0.72, 0.62).normalize();
-  ANIME_LIGHT.uRimBoost.value = idx === 1 ? 1.2 : 1.0;
+  ANIME_LIGHT.uRimBoost.value = idx === 1 || idx >= 4 ? 1.15 : 1.0;
 
   const cam = camera as THREE.PerspectiveCamera;
   cam.up.set(0, 1, 0);
@@ -209,6 +229,10 @@ const StudioScene: React.FC = () => {
     cam.position.set(0, 1.72, 1.55);
     cam.fov = 30;
     cam.lookAt(0, 1.69, 0.04);
+  } else if (idx === 4 || idx === 5) {
+    cam.position.set(0, 1.70, 2.58);
+    cam.fov = 30;
+    cam.lookAt(0, 1.66, 0.04);
   } else {
     cam.position.set(0, 1.18, 4.35);
     cam.fov = 35;
@@ -254,6 +278,14 @@ const LABELS: { title: string; cols: string[] }[] = [
   {
     title: "FULL CAST CANON HEIGHT & STYLE LINEUP",
     cols: ["GUEST ANIME CHARACTER", "LOCKED CHANNEL MC (~1.74m)"],
+  },
+  {
+    title: "GUEST CHARACTER — LIVE FACIAL EXPRESSIONS (SET A)",
+    cols: ["SMIRK", "GRIN", "SHOUT (BATTLE CRY)", "SHOCK"],
+  },
+  {
+    title: "GUEST CHARACTER — LIVE FACIAL EXPRESSIONS (SET B)",
+    cols: ["INTENSE", "SNARL", "PAIN (WINCE)", "SMUG CLOSED (^ ^)"],
   },
 ];
 
