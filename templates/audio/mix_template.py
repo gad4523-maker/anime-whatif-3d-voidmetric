@@ -237,14 +237,22 @@ def synth_anime_score():
     return buf
 
 
+def load_sfx_safe(filename, fallback_dur=1.0):
+    p = os.path.join(HERE, filename)
+    if not os.path.exists(p):
+        print(f"WARNING: SFX file missing ({filename}) — substituting silence. Drop your custom SFX in {HERE}!", file=sys.stderr)
+        return np.zeros((2, ns(fallback_dur)), dtype=np.float64)
+    return load_audio_48k(p)
+
+
 def build_sfx_stem():
     buf = np.zeros((2, N), dtype=np.float64)
 
-    sfx_erase = load_audio_48k(os.path.join(HERE, "sfx_hakai_erase.mp3"))
-    sfx_charge = load_audio_48k(os.path.join(HERE, "sfx_hakai_charge.mp3"))
-    sfx_boom = load_audio_48k(os.path.join(HERE, "sfx_pebble_boom.mp3"))
-    sfx_tap = load_audio_48k(os.path.join(HERE, "sfx_finger_tap.mp3"))
-    sfx_rewind = load_audio_48k(os.path.join(HERE, "sfx_time_rewind_shatter.mp3"))
+    sfx_erase = load_sfx_safe("sfx_power_impact.mp3")
+    sfx_charge = load_sfx_safe("sfx_power_hum.mp3")
+    sfx_boom = load_sfx_safe("sfx_catastrophe_boom.mp3")
+    sfx_tap = load_sfx_safe("sfx_power_trigger.mp3")
+    sfx_rewind = load_sfx_safe("sfx_twist_finale.mp3")
 
     def clip_part(x, dur_s, fin=0.01, fout=0.12):
         sub = x[:, : min(x.shape[1], ns(dur_s))]

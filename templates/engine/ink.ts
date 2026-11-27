@@ -360,6 +360,16 @@ export class InkPass extends Pass {
     this.quad.material = this.compMat;
     renderer.setRenderTarget(this.tmpRT);
     renderer.render(this.fsScene, this.fsCam);
+
+    // Unbind lingering texture units (especially inputBuffer.texture / inputBuffer.depthTexture from earlier passes)
+    // so drawing back into non-MSAA inputBuffer (multisampling=0 on cloud CPU swangle!) NEVER triggers a WebGL2 feedback loop!
+    const gl = renderer.getContext();
+    for (let unit = 0; unit < 8; unit++) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, null);
+    }
+    renderer.state.reset();
+
     this.quad.material = this.copyMat;
     renderer.setRenderTarget(this.renderToScreen ? null : inputBuffer);
     renderer.render(this.fsScene, this.fsCam);

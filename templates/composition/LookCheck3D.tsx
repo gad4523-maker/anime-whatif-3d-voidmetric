@@ -5,10 +5,10 @@ import { useCurrentFrame } from "remotion";
 import { EpisodeShort } from "./EpisodeShort";
 
 export const LOOK_FRAMES = [
-  30, 90, 210, 335,
-  430, 570, 655, 865,
-  970, 1095, 1315, 1474,
-  1580, 1700, 1835, 1885,
+  30, 90, 210, 330,
+  450, 570, 690, 810,
+  930, 1050, 1170, 1290,
+  1410, 1530, 1650, 1770,
 ];
 
 export const LookCheck3D: React.FC = () => {

@@ -1399,3 +1399,236 @@ export class HakaiSlice3D {
     this.u.uTime.value = t;
   }
 }
+
+// ============================================================================
+// 9. UNIVERSAL COLOR-PARAMETERIZED 3D ANIME VFX (1-Line Any Anime Power!)
+//    Examples:
+//      Gojo Hollow Purple: new EnergyOrb3D(0.24, "#b828ff", "#ffddff")
+//      Gojo Limitless Blue: new EnergyOrb3D(0.22, "#1e88ff", "#d4f4ff")
+//      Gojo Reversal Red:   new EnergyOrb3D(0.20, "#ff2438", "#ffe0d8")
+//      Sukuna Crimson Slash: new EnergySlice3D(2.8, 3.6, "#ff1e3a", "#fff0e8")
+//      Goku Ultra Instinct:  new EnergyAura3D(2.5, 0.85, "#b8dcff", "#ffffff")
+// ============================================================================
+export class EnergyOrb3D {
+  group = new THREE.Group();
+  private coreU: {
+    uTime: THREE.IUniform<number>;
+    uPower: THREE.IUniform<number>;
+    uPrimary: THREE.IUniform<THREE.Color>;
+    uCore: THREE.IUniform<THREE.Color>;
+  };
+  private rings = new THREE.Group();
+  private glow: THREE.Sprite;
+
+  constructor(radius = 0.24, primaryHex: THREE.ColorRepresentation = "#b828ff", coreHex: THREE.ColorRepresentation = "#ffe4ff") {
+    const pCol = new THREE.Color(primaryHex);
+    const cCol = new THREE.Color(coreHex);
+    this.coreU = {
+      uTime: { value: 0 },
+      uPower: { value: 1 },
+      uPrimary: { value: pCol },
+      uCore: { value: cCol },
+    };
+
+    const coreMat = new THREE.ShaderMaterial({
+      uniforms: this.coreU,
+      transparent: true,
+      depthWrite: false,
+      vertexShader: /* glsl */ `
+        ${NOISE_GLSL}
+        uniform float uTime;
+        uniform float uPower;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        varying vec3 vObj;
+        void main() {
+          float d = (fbm3(position * 5.2 + vec3(uTime * 2.4, -uTime * 1.9, uTime * 1.3)) - 0.5) * 0.14 * uPower;
+          vec3 p = position + normal * d;
+          vec4 mv = modelViewMatrix * vec4(p, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vView = normalize(-mv.xyz);
+          vObj = p;
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        ${NOISE_GLSL}
+        uniform float uTime;
+        uniform float uPower;
+        uniform vec3 uPrimary;
+        uniform vec3 uCore;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        varying vec3 vObj;
+        void main() {
+          float n = fbm3(vObj * 6.5 - vec3(0.0, uTime * 3.8, uTime * 2.2));
+          float fres = pow(1.0 - max(dot(normalize(vNormal), normalize(vView)), 0.0), 2.1);
+          vec3 col = mix(uPrimary * 0.55, uPrimary * 2.6, smoothstep(0.28, 0.72, n));
+          col += uCore * (pow(smoothstep(0.58, 0.94, n), 1.6) * 2.6 + fres * 2.4);
+          gl_FragColor = vec4(col * uPower, clamp(0.78 + fres * 0.22, 0.0, 1.0) * min(1.0, uPower));
+        }
+      `,
+    });
+    this.group.add(new THREE.Mesh(new THREE.IcosahedronGeometry(radius, 4), coreMat));
+
+    const ringMat = new THREE.MeshBasicMaterial({
+      color: pCol.clone().multiplyScalar(2.8),
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    for (let i = 0; i < 2; i++) {
+      const r = new THREE.Mesh(new THREE.TorusGeometry(radius * (1.26 + i * 0.14), radius * 0.045, 8, 44), ringMat);
+      r.rotation.set(i === 0 ? 0.65 : -0.75, i * 1.1, 0.4);
+      this.rings.add(r);
+    }
+    this.group.add(this.rings);
+
+    const tex = makeGlowSpriteTex(Math.round(pCol.r * 255), Math.round(pCol.g * 255), Math.round(pCol.b * 255));
+    this.glow = new THREE.Sprite(
+      new THREE.SpriteMaterial({ map: tex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, opacity: 0.72 })
+    );
+    this.glow.scale.setScalar(radius * 4.4);
+    this.group.add(this.glow);
+    setNoInkTree(this.group);
+  }
+
+  update(t: number, power = 1.0, scale = 1.0) {
+    this.group.visible = power > 0.01;
+    this.coreU.uTime.value = t;
+    this.coreU.uPower.value = power;
+    this.group.scale.setScalar(scale);
+    this.rings.rotation.y = t * 2.4;
+    this.rings.rotation.x = Math.sin(t * 1.6) * 0.5;
+  }
+}
+
+export class EnergyAura3D {
+  group = new THREE.Group();
+  private u: {
+    uTime: THREE.IUniform<number>;
+    uPower: THREE.IUniform<number>;
+    uPrimary: THREE.IUniform<THREE.Color>;
+    uCore: THREE.IUniform<THREE.Color>;
+  };
+
+  constructor(
+    height = 2.45,
+    radius = 0.82,
+    primaryHex: THREE.ColorRepresentation = "#b828ff",
+    coreHex: THREE.ColorRepresentation = "#ffe4ff"
+  ) {
+    this.u = {
+      uTime: { value: 0 },
+      uPower: { value: 1 },
+      uPrimary: { value: new THREE.Color(primaryHex) },
+      uCore: { value: new THREE.Color(coreHex) },
+    };
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this.u,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      vertexShader: /* glsl */ `
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          vUv = uv;
+          vec4 mv = modelViewMatrix * vec4(position, 1.0);
+          vNormal = normalize(normalMatrix * normal);
+          vView = normalize(-mv.xyz);
+          gl_Position = projectionMatrix * mv;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        ${NOISE_GLSL}
+        uniform float uTime;
+        uniform float uPower;
+        uniform vec3 uPrimary;
+        uniform vec3 uCore;
+        varying vec2 vUv;
+        varying vec3 vNormal;
+        varying vec3 vView;
+        void main() {
+          float n = fbm3(vec3(vUv.x * 10.0, vUv.y * 5.0 - uTime * 4.4, uTime * 0.6));
+          float vFade = smoothstep(0.0, 0.18, vUv.y) * smoothstep(1.0, 0.25, vUv.y);
+          float rim = pow(1.0 - abs(dot(normalize(vNormal), normalize(vView))), 1.35);
+          float flame = smoothstep(0.32, 0.82, n) * vFade * (0.45 + rim * 1.15);
+          vec3 col = mix(uPrimary * 1.9, uCore * 2.8, pow(clamp(flame, 0.0, 1.0), 1.8));
+          gl_FragColor = vec4(col * flame * uPower, flame * 0.85 * uPower);
+        }
+      `,
+    });
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(radius * 0.72, radius * 1.08, height, 32, 16, true), mat);
+    cyl.position.y = height * 0.5;
+    this.group.add(cyl);
+    setNoInkTree(this.group);
+  }
+
+  update(t: number, power = 1.0, scale = 1.0) {
+    this.group.visible = power > 0.01;
+    this.u.uTime.value = t;
+    this.u.uPower.value = power;
+    this.group.scale.setScalar(scale);
+  }
+}
+
+export class EnergySlice3D {
+  mesh: THREE.Mesh;
+  private u: {
+    uTime: THREE.IUniform<number>;
+    uPower: THREE.IUniform<number>;
+    uPrimary: THREE.IUniform<THREE.Color>;
+    uCore: THREE.IUniform<THREE.Color>;
+  };
+
+  constructor(
+    width = 3.2,
+    height = 3.6,
+    primaryHex: THREE.ColorRepresentation = "#ff1e3a",
+    coreHex: THREE.ColorRepresentation = "#fff0e8"
+  ) {
+    this.u = {
+      uTime: { value: 0 },
+      uPower: { value: 0 },
+      uPrimary: { value: new THREE.Color(primaryHex) },
+      uCore: { value: new THREE.Color(coreHex) },
+    };
+    const mat = new THREE.ShaderMaterial({
+      uniforms: this.u,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: /* glsl */ `
+        ${NOISE_GLSL}
+        uniform float uTime;
+        uniform float uPower;
+        uniform vec3 uPrimary;
+        uniform vec3 uCore;
+        varying vec2 vUv;
+        void main() {
+          float dx = abs(vUv.x - 0.5) * 2.0;
+          float razor = pow(clamp(1.0 - dx, 0.0, 1.0), 4.2);
+          float n = fbm3(vec3(vUv.x * 6.0, vUv.y * 8.0 - uTime * 9.0, 1.0));
+          float vFade = smoothstep(0.0, 0.1, vUv.y) * smoothstep(1.0, 0.9, vUv.y);
+          vec3 col = mix(uPrimary * 2.4, uCore * 4.4, pow(razor, 1.8));
+          float a = razor * (0.55 + 0.45 * n) * vFade * uPower;
+          gl_FragColor = vec4(col * a, a);
+        }
+      `,
+    });
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, height), mat);
+    this.mesh.layers.set(NOINK);
+  }
+
+  update(power: number, t: number) {
+    this.mesh.visible = power > 0.01;
+    this.u.uPower.value = power;
+    this.u.uTime.value = t;
+  }
+}

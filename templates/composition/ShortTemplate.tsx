@@ -23,7 +23,8 @@ import { SubtitlesOverlay } from "./Subtitles";
 
 export const EPISODE_FRAMES = TOTAL;
 
-// MSAA: 0 for CPU-only cloud sandboxes (Gemini Tasks swangle: ~2.5x faster & ~40% less RAM), 4 for local GPU PCs!
+// MSAA: MUST be >= 2 when LensBlur is active (postprocessing v6 shares depth buffer at MSAA=0 causing WebGL2 black-screen feedback loop!).
+// Use 2 on CPU-only cloud sandboxes (Gemini Tasks swangle), 4 on GPU PCs & Colab L4/T4!
 const EFFECT_MSAA = {{MSAA_SAMPLES}};
 
 const makeBloom = () => {
@@ -123,7 +124,10 @@ const ShotView: React.FC<{ id: number; alpha: number; frame: number }> = ({ id, 
   );
 };
 
-export const EpisodeShort: React.FC<{ frameOverride?: number }> = ({ frameOverride }) => {
+export const EpisodeShort: React.FC<{ frameOverride?: number; hideSubtitles?: boolean }> = ({
+  frameOverride,
+  hideSubtitles = false,
+}) => {
   const curF = useCurrentFrame();
   const f = frameOverride ?? curF;
   const fl = flashAt(f);
@@ -133,7 +137,12 @@ export const EpisodeShort: React.FC<{ frameOverride?: number }> = ({ frameOverri
         <ShotView key={i ? "over" : "base"} id={l.id} alpha={l.alpha} frame={f} />
       ))}
       {fl.alpha > 0.01 && <AbsoluteFill style={{ background: fl.color, opacity: fl.alpha }} />}
-      <SubtitlesOverlay frameOverride={f} />
+      {!hideSubtitles && <SubtitlesOverlay frameOverride={f} />}
     </AbsoluteFill>
   );
 };
+
+// Clean 1-frame subtitle-free hero cover thumbnail (customize thumbFrame to the peak visual hook frame!)
+export const EpisodeThumb: React.FC<{ thumbFrame?: number }> = ({ thumbFrame = 920 }) => (
+  <EpisodeShort frameOverride={thumbFrame} hideSubtitles />
+);

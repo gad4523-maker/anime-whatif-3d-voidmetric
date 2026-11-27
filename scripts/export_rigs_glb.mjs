@@ -176,9 +176,13 @@ run().catch(async (err) => {
       res.end("bye");
       setTimeout(() => {
         if (chromeProc) chromeProc.kill();
-        fs.rmSync(prof, { recursive: true, force: true });
-        server.close();
-        process.exit(0);
+        setTimeout(() => {
+          try {
+            fs.rmSync(prof, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+          } catch {}
+          server.close();
+          process.exit(0);
+        }, 250);
       }, 150);
       return;
     }
@@ -190,7 +194,9 @@ run().catch(async (err) => {
         res.writeHead(500);
         res.end("err");
         if (chromeProc) chromeProc.kill();
-        fs.rmSync(prof, { recursive: true, force: true });
+        try {
+          fs.rmSync(prof, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+        } catch {}
         server.close();
         process.exit(1);
       });

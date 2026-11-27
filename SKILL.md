@@ -20,7 +20,7 @@ description: >-
 Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** in the proven **Voidmetric Gold-Standard Style** — established by *"What If You Woke Up With Beerus's Destruction Power?"* (`references/beerus-gold-standard/`).
 
 Supports **three verified execution profiles**:
-- **`cloud-1080p` (100% Gemini Tasks / Linux CPU-only Sandbox — `1080×1920` @ `30 fps`):** Bootstraps a self-contained Remotion + Three.js workspace (`templates/starter-remotion/`), uses `--gl=swangle --concurrency=1`, `EFFECT_MSAA = 0`, `/tmp/remotion-tmp`, and resumable 300-frame chunked rendering (`whatif_cli.py render-cloud`) so 2 vCPUs + 6.9 GiB RAM / 0 swap NEVER crashes or OOMs.
+- **`cloud-1080p` (100% Gemini Tasks / Linux CPU-only Sandbox — `1080×1920` @ `30 fps`):** Bootstraps a self-contained Remotion + Three.js workspace (`templates/starter-remotion/`), uses `--gl=swangle --concurrency=1`, **`EFFECT_MSAA = 2`** (minimum WebGL2-safe MSAA for `LensBlur`), `/tmp/remotion-tmp`, and resumable 300-frame chunked rendering (`whatif_cli.py render-cloud`) so 2 vCPUs + 6.9 GiB RAM / 0 swap NEVER crashes or renders black.
 - **`colab-gpu` (Gemini Tasks Stages 1–6 + Google Colab Pro `L4` / `T4` GPU Render — `1080p` or full `2K 1440×2560` in ~2–4 min):** Export the verified Remotion workspace as a `.zip` (or push to GitHub) and open `colab/Voidmetric_GPU_Render.ipynb` on a Colab **L4** or **T4** GPU (`--gl=angle-egl --concurrency=4`, `EFFECT_MSAA = 4`, auto-saves to Google Drive). Avoid A100/TPUs for WebGL rendering.
 - **`local-2k` (Local GPU PC — `1440×2560` @ `30 fps`):** Native 2K composition (`EpisodeShort2K`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
 
@@ -119,10 +119,11 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - **Unadapted Manga/Novel Spoilers Flagged:** Explicitly flag manga/novel-only feats not yet animated so the user can choose whether to include them (default: **include full latest official canon** unless user opts out).
    - **What-If Real-World Extrapolations** clearly labeled separately from stated canon.
 
-### Stage 3 — ~60s Viral Script + Adversarial Lore Audit (**APPROVAL GATE 1**)
+### Stage 3 — ~60s Viral Script, 3-Second Hook Gate & Adversarial Lore Audit (**APPROVAL GATE 1**)
 1. Draft `projects/<slug>/SCRIPT.md` (~175–195 words, ~55–65 s) using the proven Beerus beat arc (`references/beerus-gold-standard/SCRIPT_beerus_example.md`). Avoid repetitive gimmick standalone `"Wrong."` drops — earn the twist naturally through an escalating consequence!
-2. **Adversarial Lore Audit:** Perform an independent line-by-line audit trying to **disprove every factual claim** in `SCRIPT.md` against `LORE_FACT_SHEET.md` and official canon. Fix any inaccuracy and record `PASS` sign-off in `LORE_FACT_SHEET.md`.
-3. Present `LORE_FACT_SHEET.md`, flagged manga spoilers, `SCRIPT.md`, and the 5 SFX prompts. **Wait for explicit user approval before rigging or audio.**
+2. **Mandatory First-3-Seconds Retention Hook Check (`f0–f90`):** Confirm that within the first `2.8 seconds` (`<= frame 84`), the viewer immediately sees: (a) active glowing 3D power VFX in frame 0, (b) MC's sharp-jawline anime reaction, AND (c) the first physical power consequence (e.g., object dissolving, slicing, warping) — zero slow fade-ins or static talking intros!
+3. **Adversarial Lore Audit:** Perform an independent line-by-line audit trying to **disprove every factual claim** in `SCRIPT.md` against `LORE_FACT_SHEET.md` and official canon. Fix any inaccuracy and record `PASS` sign-off in `LORE_FACT_SHEET.md`.
+4. Present `LORE_FACT_SHEET.md`, flagged spoilers, `SCRIPT.md`, and the 5 SFX prompts. **Wait for explicit user approval before rigging or audio.**
 
 ### Stage 4 — 3D Anime Rig Showcase (**MANDATORY HARD STOP — APPROVAL GATE 2**)
 > [!CAUTION]
@@ -150,9 +151,9 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 
 ### Stage 6 — 3D World, Bone-Locked VFX & Zero-Clipping 9:16 Look-Check Gate
 1. Build 5–6 spatial 3D zones (`0, 120, 240, 360, 480, 600`) using `twoTone`, `untone()` sky shader, camera-relative frozen sun, and `EpisodeShort.tsx`.
-2. **Bone-Locked VFX Rule:** Call `this.cast.update(...)` + `this.root.updateMatrixWorld(true)` FIRST, then attach hand/weapon 3D GLSL VFX via `bone.localToWorld(...)`. Offset forward-held palm orbs `+0.12 to +0.15 m` toward camera so fingers remain cleanly behind the orb.
-3. **Zero-Clipping 9:16 Gate:**
-   - Run `whatif_cli.py check-framing` and verify `PASS` (`halfWidth = D * tan(fov/2) * 0.5625`).
+2. **Bone-Locked Universal 3D VFX Rule:** Use color-parameterized `EnergyOrb3D(radius, primaryHex, coreHex)`, `EnergyAura3D(...)`, and `EnergySlice3D(...)` from `vfx3d.ts` (1-line adaptation for any anime power palette!). Call `this.cast.update(...)` + `this.root.updateMatrixWorld(true)` FIRST, then attach hand/weapon 3D GLSL VFX via `bone.localToWorld(...)`. Offset forward-held palm orbs `+0.12 to +0.15 m` toward camera so fingers remain cleanly behind the orb.
+3. **Zero-Clipping 9:16 + Beat-Sync Gate:**
+   - Run `whatif_cli.py check-framing` (`PASS`) AND `whatif_cli.py check-beats` (confirming every impact lands `0–4 frames` before its punch word!).
    - Render `EpisodeLookCheck3D` (`16` frames at `540×960`, `--gl=swangle --concurrency=1` in cloud / `--gl=angle --concurrency=4` on GPU), tile into `sheet_3d.jpg`, and **visually inspect every tile**. Fix ANY clipped limb, hair spike, orb, kanji, or weapon before full render!
 
 ### Stage 7 — Render Choice Gate (Colab GPU vs. Self-Render 1080p), `qa-audit` & Delivery
@@ -195,14 +196,16 @@ Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
 | **Subtitles** | `Subtitles.tsx`: `60px` baseline (`height / 1920` scaled), crisp dark outline + karaoke purple/gold highlight, **NO black background box**, **NO pop-up/bounce animation** |
 | **9:16 Safe Frustum** | `halfWidth = D * tan(fov/2) * 0.5625`; `0` clipped limbs, hair spikes, orbs, kanji, or staffs |
 | **Bone-Locked VFX** | Real-time `localToWorld` attachment; forward palm orbs offset `+0.12..0.15 m` toward camera |
-| **Cloud 1080p Spec (Gemini Tasks)** | Native `1080×1920` @ `30 fps`, `EFFECT_MSAA = 0`, `--gl=swangle --concurrency=1`, 300f resumable chunks (`render-cloud`), CRF 17, AAC 256k, `-14.5 LUFS` |
+| **Cloud 1080p Spec (Gemini Tasks)** | Native `1080×1920` @ `30 fps`, **`EFFECT_MSAA = 2`** (NEVER 0!), `--gl=swangle --concurrency=1`, 300f resumable chunks (`render-cloud`), CRF 17, AAC 256k, `-14.5 LUFS` |
 | **Local 2K Spec (GPU PC)** | Native `1440×2560` @ `30 fps`, `EFFECT_MSAA = 4`, `--gl=angle --concurrency=4`, CRF 16, AAC 256k, `-14.5 LUFS` |
+| **Publishing Extras & Memory** | Render subtitle-free `EpisodeThumb` (`1080×1920` PNG), export `.srt` via `whatif_cli.py export-srt`, and log completed episodes in `CHANNEL_BIBLE.md` |
 
 ---
 
 ## Common Mistakes (Never Repeat!)
 
-1. **OOM Crash in Gemini Tasks:** Never run `--concurrency=4` or `EFFECT_MSAA=4` or `--gl=angle` on a 2-vCPU / 6.9 GiB RAM / 0-swap CPU cloud box. Always use `cloud-1080p` (`EFFECT_MSAA=0`, `--gl=swangle --concurrency=1`, 300-frame chunks via `render-cloud`).
+1. **NEVER Set `EFFECT_MSAA = 0` With `LensBlur` (100% Black Screen Bug!):** In `postprocessing` v6, `multisampling={0}` shares the depth buffer between `inputBuffer` and `outputBuffer`, causing `GL_INVALID_OPERATION: Feedback loop formed between Framebuffer and active Texture` and rendering a completely black 3D scene. Always use **`EFFECT_MSAA = 2`** on CPU `swangle` and **`EFFECT_MSAA = 4`** on GPU (`angle` / `angle-egl`).
+2. **OOM Crash in Gemini Tasks:** Never run `--concurrency=4` or `--gl=angle` on a 2-vCPU / 6.9 GiB RAM / 0-swap CPU cloud box. Always use `cloud-1080p` (`EFFECT_MSAA=2`, `--gl=swangle --concurrency=1`, 300-frame chunks via `render-cloud`).
 2. **Floating or Behind-the-Hand VFX:** Always call `root.updateMatrixWorld(true)`, track via `bone.localToWorld(...)`, and apply `+0.12..0.15 m` palm-to-camera offset on forward palm orbs.
 3. **9:16 Edge Clipping:** 9:16 vertical video is narrow (`halfWidth ≈ 0.21 × D` at `fov = 41°`). Always pass `check-framing` and visually inspect all 16 tiles of `EpisodeLookCheck3D` before full render.
 4. **NaN Bloom Blackout:** Always clamp non-integer powers as `Math.pow(Math.max(0, x), exp)`.

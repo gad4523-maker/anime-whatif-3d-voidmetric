@@ -60,7 +60,8 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
     proj_dir = remotion_root / "projects" / slug
     src_dir = remotion_root / "src" / "videos" / slug
     profile = args.profile
-    msaa = "0" if profile == "cloud-1080p" else "4"
+    # MSAA MUST be >= 2 when LensBlur is active (MSAA=0 causes WebGL2 shared-depth feedback loop black screen in postprocessing v6!)
+    msaa = "2" if profile == "cloud-1080p" else "4"
 
     created_dirs: list[str] = []
     for sub in ["voice", "audio", "refs", "rigs3d", "stills_3d", "out"]:
@@ -782,6 +783,14 @@ def cmd_package_colab(args: argparse.Namespace) -> None:
                 if re.match(r"shots.*\.json$", fn):
                     found_shots = True
 
+        # Always bundle short_qa.py into the zip so Google Colab Cell 5 can run full QA & display contact sheets!
+        qa_src = PACK_ROOT / "scripts" / "short_qa.py"
+        if qa_src.exists():
+            qa_arc = (Path(remotion_root.name) / "scripts" / "short_qa.py").as_posix()
+            if qa_arc not in zf.namelist():
+                zf.write(qa_src, qa_arc)
+                file_count += 1
+
     size_mb = round(out_zip.stat().st_size / (1024 * 1024), 2)
     report = {
         "status": "ok",
@@ -797,6 +806,125 @@ def cmd_package_colab(args: argparse.Namespace) -> None:
     print(f"Success! Packaged {file_count} files ({size_mb} MB, mix_wav={found_mix}) -> {out_zip}")
 
 
+# ---------------------------------------------------------------------------
+# 9. export-srt (Clean Platform-Ready .srt Captions for YouTube Shorts & Reels)
+# ---------------------------------------------------------------------------
+def _fmt_srt_time(sec: float) -> str:
+    ms = max(0, int(round(sec * 1000)))
+    h, rem = divmod(ms, 3_600_000)
+    m, rem = divmod(rem, 60_000)
+    s, rem = divmod(rem, 1000)
+    return f"{h:02d}:{m:02d}:{s:02d},{rem:03d}"
+
+
+def cmd_export_srt(args: argparse.Namespace) -> None:
+    words_path = Path(args.words_json).resolve()
+    if not words_path.exists():
+        fail(f"Words JSON not found: {words_path}")
+    raw = json.loads(words_path.read_text(encoding="utf-8"))
+    words = raw.get("words", raw if isinstance(raw, list) else [])
+    if not words:
+        fail("No words array found in words_json.")
+
+    max_words = int(args.max_words)
+    cues: list[tuple[float, float, str]] = []
+    buf: list[dict[str, Any]] = []
+
+    def flush() -> None:
+        nonlocal buf
+        if not buf:
+            return
+        cues.append((float(buf[0]["start"]), float(buf[-1]["end"]), " ".join(str(x.get("word", x.get("text", ""))).strip() for x in buf)))
+        buf = []
+
+    for w in words:
+        txt = str(w.get("word", w.get("text", ""))).strip()
+        if not txt:
+            continue
+        if buf and (float(w["start"]) - float(buf[-1]["end"])) > 0.38:
+            flush()
+        buf.append(w)
+        if len(buf) >= max_words or txt.endswith((".", "!", "?", "—", ",")):
+            flush()
+    flush()
+
+    lines: list[str] = []
+    for idx, (s, e, text) in enumerate(cues, start=1):
+        lines.append(f"{idx}\n{_fmt_srt_time(s)} --> {_fmt_srt_time(max(s + 0.08, e))}\n{text}\n")
+
+    srt_out = Path(args.srt_out).resolve()
+    srt_out.parent.mkdir(parents=True, exist_ok=True)
+    srt_out.write_text("\n".join(lines), encoding="utf-8")
+
+    report = {"status": "ok", "cue_count": len(cues), "srt_out": str(srt_out)}
+    write_json(Path(args.output).resolve(), report)
+    print(f"Success! Exported {len(cues)} SRT subtitle cues -> {srt_out}")
+
+
+# ---------------------------------------------------------------------------
+# 10. check-beats (Verify Visual Impacts Land 0-4 Frames Before Punch Words!)
+# ---------------------------------------------------------------------------
+def cmd_check_beats(args: argparse.Namespace) -> None:
+    words_path = Path(args.words_json).resolve()
+    beats_path = Path(args.beats_json).resolve()
+    if not words_path.exists():
+        fail(f"Words JSON not found: {words_path}")
+    if not beats_path.exists():
+        fail(f"Beats JSON not found: {beats_path}")
+
+    fps = int(args.fps)
+    words = json.loads(words_path.read_text(encoding="utf-8")).get("words", [])
+    beats_raw = json.loads(beats_path.read_text(encoding="utf-8"))
+    beats = beats_raw.get("beats", beats_raw if isinstance(beats_raw, list) else [])
+
+    def clean_tok(s: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", s.lower())
+
+    results: list[dict[str, Any]] = []
+    late_count = 0
+    for b in beats:
+        name = b.get("name", "beat")
+        v_frame = int(b["frame"])
+        kw = clean_tok(str(b["keyword"]))
+        occ = int(b.get("occurrence", 1))
+        matches = [w for w in words if clean_tok(str(w.get("word", w.get("text", "")))) == kw]
+        if len(matches) < occ:
+            results.append({"name": name, "keyword": b["keyword"], "status": "MISSING_WORD"})
+            late_count += 1
+            continue
+        w = matches[occ - 1]
+        w_frame = int(round(float(w["start"]) * fps))
+        delta = v_frame - w_frame  # negative = visual lands before word (ideal: -4..+2)
+        if -6 <= delta <= 2:
+            st = "PASS"
+        elif delta > 2:
+            st = "LATE_VISUAL"
+            late_count += 1
+        else:
+            st = "EARLY_WARNING"
+        results.append(
+            {
+                "name": name,
+                "keyword": b["keyword"],
+                "visual_frame": v_frame,
+                "word_frame": w_frame,
+                "delta_frames": delta,
+                "status": st,
+            }
+        )
+
+    report = {
+        "fps": fps,
+        "overall_status": "PASS" if late_count == 0 else "FAIL",
+        "issues_count": late_count,
+        "beats": results,
+    }
+    write_json(Path(args.output).resolve(), report)
+    print(f"Beat-sync check {report['overall_status']} ({late_count} late/missing beats). Report written to: {args.output}")
+    if late_count > 0 and not args.warn_only:
+        sys.exit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whatif_cli.py", description="Voidmetric Anime What-If 3D Short CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -805,7 +933,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_init.add_argument("--slug", required=True, help="URL-safe episode slug (e.g. gojo-limitless)")
     p_init.add_argument("--title", required=True, help="Full episode title")
     p_init.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
-    p_init.add_argument("--profile", choices=["cloud-1080p", "local-2k"], default="cloud-1080p", help="Render profile (cloud-1080p sets MSAA=0 for Gemini Tasks CPU)")
+    p_init.add_argument("--profile", choices=["cloud-1080p", "local-2k"], default="cloud-1080p", help="Render profile (cloud-1080p sets MSAA=2 for WebGL2-safe swangle, local-2k sets MSAA=4)")
     p_init.add_argument("--bootstrap-remotion", action="store_true", help="Copy starter Remotion package.json/config/Root.tsx for fresh cloud sandboxes")
     p_init.add_argument("--output", required=True, help="Path to write JSON manifest")
     p_init.add_argument("--force", action="store_true", help="Overwrite existing starter files")
@@ -879,6 +1007,21 @@ def build_parser() -> argparse.ArgumentParser:
     p_pkg.add_argument("--out-zip", required=True, help="Destination .zip path")
     p_pkg.add_argument("--output", required=True, help="Path to write packaging manifest JSON")
     p_pkg.set_defaults(func=cmd_package_colab)
+
+    p_srt = sub.add_parser("export-srt", help="Export clean platform-ready .srt captions from words.json")
+    p_srt.add_argument("--words-json", required=True, help="Word timestamp JSON ({words: [{word,start,end}]})")
+    p_srt.add_argument("--max-words", type=int, default=4, help="Max words per SRT cue (default 4)")
+    p_srt.add_argument("--srt-out", required=True, help="Destination .srt path")
+    p_srt.add_argument("--output", required=True, help="Path to write export summary JSON")
+    p_srt.set_defaults(func=cmd_export_srt)
+
+    p_bt = sub.add_parser("check-beats", help="Verify visual impact frames land 0-4 frames before spoken punch words")
+    p_bt.add_argument("--words-json", required=True, help="Word timestamp JSON")
+    p_bt.add_argument("--beats-json", required=True, help="Beats JSON ({beats: [{name, frame, keyword, occurrence?}]})")
+    p_bt.add_argument("--fps", type=int, required=True, help="Video FPS (30)")
+    p_bt.add_argument("--warn-only", action="store_true", help="Exit 0 even if beats are late")
+    p_bt.add_argument("--output", required=True, help="Path to write beat-sync report JSON")
+    p_bt.set_defaults(func=cmd_check_beats)
 
     return p
 

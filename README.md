@@ -8,13 +8,12 @@ Built from our gold-standard **Beerus Destruction Power 3D Anime Short** combine
 
 ## Key Features
 
-- **100% Gemini Tasks Cloud-Ready (`cloud-1080p`):** Includes `templates/starter-remotion/` (Node 18+ compatible, auto-`swangle` WebGL detection), `MSAA = 0` CPU profile, and `whatif_cli.py render-cloud` — an **OOM-proof, resumable 300-frame chunked renderer** built specifically for 2-vCPU / 6.9 GiB RAM / 0-swap Linux sandboxes!
+- **100% Gemini Tasks Cloud-Ready (`cloud-1080p`):** Includes `templates/starter-remotion/` (Node 18+ compatible, auto-`swangle` WebGL detection), WebGL2-safe **`MSAA = 2`** CPU profile (prevents `postprocessing` v6 depth-buffer black screens!), and `whatif_cli.py render-cloud` — an **OOM-proof, resumable 300-frame chunked renderer** built specifically for 2-vCPU / 6.9 GiB RAM / 0-swap Linux sandboxes!
 - **Full-Canon Lore & Power Fact-Checker Gate (NOT Anime-Only!):** Prioritizes **original source canon** (Manga, Manhwa, Light Novels, Official Databooks, Author Q&As) alongside Canon Anime — explicitly documenting manga-vs-anime differences, excluding non-canon filler/fan myths, flagging unadapted spoilers for user choice, and running an adversarial script audit before rigging or voiceover.
-- **Locked Channel Face (`rig3d_mc.ts`):** Permanent 24-bone articulated Channel MC 3D rig (sharp shonen V-jawline, black 3D glasses, 18-lock spiky hair, black zip jacket & white tee) carried across every episode.
-- **Dragon Ball FighterZ–Style 3D Cel-Shaded Anime Rigs (`rig3d_core.ts`):** 3-band GLSL cel shading, smooth-normal inverted-hull ink outlines, 1024×1024 painted UV face maps, 5-finger articulated hands, and portable `.glb` export.
-- **Bone-Locked 3D GLSL Volumetric VFX (`vfx3d_core.ts`):** Real-time `localToWorld` bone attachment, palm-front offsets, spatial dissolve shaders, aura cylinders, shockwaves, and 6-level HDR Mipmap Bloom.
-- **Rock-Steady Floating Karaoke Subtitles (`Subtitles.tsx`):** Bundles OFL `Montserrat-Black.ttf` inside `public/fonts/` so chunky `60px` baseline typography renders 100% identically across Windows, Debian 12 Gemini Tasks, and Google Colab (zero black box, zero bounce).
-- **Automated Voice Alignment (`align-voice`) & Colab Bundler (`package-colab`):** Extracts millisecond Whisper word timestamps from uploaded voiceovers and exports clean `.zip` bundles without needing system `zip`.
+- **Locked Channel Face (`rig3d_mc.ts`) + `CHANNEL_BIBLE.md`:** Permanent 24-bone articulated Channel MC 3D rig (sharp shonen V-jawline, black 3D glasses, 18-lock spiky hair, black zip jacket & white tee) + episode registry carried across every episode.
+- **Dragon Ball FighterZ–Style 3D Cel-Shaded Anime Rigs (`rig3d_core.ts`):** 3-band GLSL cel shading, smooth-normal inverted-hull ink outlines, 1024×1024 painted UV face maps, 5-finger articulated hands, `EpisodeCastSheet3D` turnaround studio, and cross-platform `.glb` export.
+- **Universal Bone-Locked 3D GLSL VFX (`vfx3d_core.ts`):** 1-line color-parameterized `EnergyOrb3D`, `EnergyAura3D`, and `EnergySlice3D` for any anime power palette + real-time `localToWorld` bone tracking + 6-level HDR Mipmap Bloom.
+- **Rock-Steady Floating Karaoke Subtitles (`Subtitles.tsx`) + Publishing Pack:** Bundles OFL `Montserrat-Black.ttf` inside `public/fonts/` so chunky `60px` baseline typography renders identically on Windows, Debian 12, and Colab; includes subtitle-free `EpisodeThumb`, `export-srt`, `check-beats`, `align-voice`, and `package-colab` (auto-bundling `short_qa.py` for Colab QA!).
 - **Zero-Clipping 9:16 Frustum Checker (`whatif_cli.py check-framing`):** Mathematical camera bounds validator + 16-frame `LookCheck3D` pre-render gate.
 - **Automated Master QA (`whatif_cli.py qa-audit` & `short_qa.py`):** Verifies `1080×1920` (cloud) or `1440×2560` (local 2K), `30 fps`, `-14.5 LUFS` loudness, 0 black/frozen frames, and continuous motion contact sheets.
 
@@ -26,7 +25,7 @@ Once you push this repo to GitHub, start a new **Gemini Tasks** session and past
 
 ```text
 Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
-Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile (1080x1920 @ 30 fps, MSAA=0, --gl=swangle, --concurrency=1, chunked render via `python3 scripts/whatif_cli.py render-cloud`).
+Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile (1080x1920 @ 30 fps, MSAA=2, --gl=swangle, --concurrency=1, chunked render via `python3 scripts/whatif_cli.py render-cloud`).
 
 Topic: "What If You Woke Up With [CHARACTER]'s Power?"
 

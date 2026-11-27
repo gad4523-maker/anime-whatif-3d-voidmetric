@@ -126,7 +126,13 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
   head.position.set(0, 0.11, 0);
   neck.add(head);
 
-  // Sculpted torso (replace rings/costume layers to match reference character!)
+  // Sculpted pelvis + torso (replace rings/costume layers to match reference character!)
+  const pelvisRings: RingSpec[] = [
+    { y: -0.08, rx: 0.145, rz: 0.105 },
+    { y: 0.02, rx: 0.15, rz: 0.108 },
+    { y: 0.10, rx: 0.142, rz: 0.102 },
+  ];
+  addPart(hips, loftRings(pelvisRings, 20), mSuit, { outline: 0.005, name: "pelvis" });
   const torsoRings: RingSpec[] = [
     { y: -0.02, rx: 0.14, rz: 0.10 },
     { y: 0.22, rx: 0.13, rz: 0.095 },
