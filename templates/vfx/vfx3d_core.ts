@@ -1309,3 +1309,146 @@ export class KanjiBurst3D {
     this.mat.opacity = p < 0.85 ? 1.0 : Math.max(0, (1.0 - p) / 0.15);
   }
 }
+
+// ============================================================================
+// 10. GROUNDED ATMOSPHERIC WEATHER & MICRO-PARTICLES (Rain / Snow / Sparks / Sunlit Dust — NOINK!)
+// ============================================================================
+export type WeatherMode3D = "rain" | "snow" | "sparks" | "dust";
+
+export class AtmosphericWeather3D {
+  group = new THREE.Group();
+  private mode: WeatherMode3D;
+  private mesh: THREE.InstancedMesh;
+  private seeds: { x: number; y: number; z: number; sp: number; ph: number; sc: number }[] = [];
+  private areaW: number;
+  private areaH: number;
+  private areaD: number;
+  private dummy = new THREE.Object3D();
+
+  constructor(
+    mode: WeatherMode3D,
+    opts: { count?: number; area?: [number, number, number]; color?: string; opacity?: number } = {}
+  ) {
+    this.mode = mode;
+    const count = opts.count ?? (mode === "rain" ? 160 : mode === "snow" ? 120 : 80);
+    [this.areaW, this.areaH, this.areaD] = opts.area ?? [9, 6.5, 9];
+
+    const geo =
+      mode === "rain"
+        ? new THREE.CylinderGeometry(0.005, 0.005, 0.42, 4)
+        : mode === "sparks"
+        ? new THREE.BoxGeometry(0.024, 0.085, 0.024)
+        : new THREE.SphereGeometry(mode === "snow" ? 0.032 : 0.018, 6, 5);
+
+    const defaultCol =
+      mode === "rain" ? "#d4e8ff" : mode === "snow" ? "#ffffff" : mode === "sparks" ? "#ffb84a" : "#fff4cc";
+    const col = new THREE.Color(opts.color ?? defaultCol);
+    if (mode === "sparks") col.multiplyScalar(2.6); // crisp HDR Bloom gleam for forge/welding/rail sparks!
+
+    const mat = new THREE.MeshBasicMaterial({
+      color: col,
+      transparent: true,
+      opacity: opts.opacity ?? (mode === "rain" ? 0.42 : mode === "dust" ? 0.48 : 0.85),
+      depthWrite: false,
+      blending: mode === "sparks" || mode === "dust" ? THREE.AdditiveBlending : THREE.NormalBlending,
+    });
+
+    this.mesh = new THREE.InstancedMesh(geo, mat, count);
+    this.mesh.frustumCulled = false;
+
+    const h = (n: number) => {
+      const s = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+      return s - Math.floor(s);
+    };
+    for (let i = 0; i < count; i++) {
+      this.seeds.push({
+        x: (h(i * 7 + 1) - 0.5) * this.areaW,
+        y: h(i * 7 + 2) * this.areaH,
+        z: (h(i * 7 + 3) - 0.5) * this.areaD,
+        sp: 0.7 + h(i * 7 + 4) * 0.75,
+        ph: h(i * 7 + 5) * Math.PI * 2,
+        sc: 0.65 + h(i * 7 + 6) * 0.7,
+      });
+    }
+    this.group.add(this.mesh);
+    setNoInkTree(this.group);
+  }
+
+  update(t: number, intensity = 1) {
+    this.group.visible = intensity > 0.01;
+    if (!this.group.visible) return;
+    const H = this.areaH;
+    for (let i = 0; i < this.seeds.length; i++) {
+      const s = this.seeds[i];
+      let x = s.x;
+      let y = s.y;
+      let z = s.z;
+      if (this.mode === "rain") {
+        const drop = (s.y - t * 9.5 * s.sp) % H;
+        y = drop < 0 ? drop + H : drop;
+        x = s.x - (H - y) * 0.12;
+        this.dummy.rotation.set(0, 0, -0.14);
+      } else if (this.mode === "snow") {
+        const fall = (s.y - t * 0.95 * s.sp) % H;
+        y = fall < 0 ? fall + H : fall;
+        x = s.x + Math.sin(t * 1.4 + s.ph) * 0.45;
+        z = s.z + Math.cos(t * 1.1 + s.ph) * 0.30;
+        this.dummy.rotation.set(t + s.ph, t * 0.7, 0);
+      } else if (this.mode === "sparks") {
+        const rise = (s.y + t * 2.4 * s.sp) % H;
+        y = rise;
+        x = s.x + Math.sin(t * 4.2 + s.ph) * 0.35;
+        this.dummy.rotation.set(0, 0, Math.sin(t * 5 + s.ph) * 0.35);
+      } else {
+        // Floating sunlit room/lab dust motes
+        y = ((s.y + Math.sin(t * 0.6 + s.ph) * 0.35) % H + H) % H;
+        x = s.x + Math.cos(t * 0.45 + s.ph) * 0.28;
+        this.dummy.rotation.set(0, 0, 0);
+      }
+      this.dummy.position.set(x, y, z);
+      this.dummy.scale.setScalar(s.sc * Math.min(1, intensity));
+      this.dummy.updateMatrix();
+      this.mesh.setMatrixAt(i, this.dummy.matrix);
+    }
+    this.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// ============================================================================
+// 11. VOLUMETRIC ANIME SUNBEAM / MOONBEAM WINDOW LIGHT SHAFT (Soft-Edge GLSL — NOINK!)
+// ============================================================================
+export class SunbeamShaft3D {
+  group = new THREE.Group();
+  private mat: THREE.ShaderMaterial;
+  private baseOpacity: number;
+
+  constructor(opts: { width?: number; length?: number; color?: string; opacity?: number } = {}) {
+    const w = opts.width ?? 2.4;
+    const l = opts.length ?? 5.2;
+    this.baseOpacity = opts.opacity ?? 0.24;
+    this.mat = createCustomVFXMat({
+      colorA: opts.color ?? "#fff2c2",
+      colorB: "#ffffff",
+      additive: true,
+      doubleSide: true,
+      fragmentBody: /* glsl */ `
+        // Smooth radial beam falloff + slow drifting volumetric dust streaks!
+        float edgeX = smoothstep(0.0, 0.28, vUv.x) * smoothstep(1.0, 0.72, vUv.x);
+        float fadeY = smoothstep(0.0, 0.55, vUv.y) * smoothstep(1.0, 0.82, vUv.y);
+        float ray = 0.78 + 0.22 * sin(vUv.x * 22.0 + uTime * 0.4);
+        float dust = 0.85 + 0.15 * vnoise(vec3(vUv * 8.0, uTime * 0.25));
+        float a = edgeX * fadeY * ray * dust * uIntensity;
+        gl_FragColor = vec4(mix(uColorA, uColorB, vUv.y * 0.35), a);
+      `,
+    });
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, l), this.mat);
+    this.group.add(plane);
+    setNoInkTree(this.group);
+  }
+
+  update(t: number, intensity = 1) {
+    this.group.visible = intensity > 0.01;
+    this.mat.uniforms.uTime.value = t;
+    this.mat.uniforms.uIntensity.value = intensity * this.baseOpacity;
+  }
+}

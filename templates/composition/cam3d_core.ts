@@ -1,6 +1,7 @@
-// Voidmetric v3.0 Cinematic Anime Camera Choreography Engine (MAPPA / Ufotable 9:16 Safe Primitives!)
+// Voidmetric v3.5 Cinematic Anime Camera Choreography Engine (MAPPA / Ufotable / Viral Shorts 9:16 Safe Primitives!)
 export type V3 = [number, number, number];
 export type CamState = { pos: V3; look: V3; fov: number; roll: number };
+export type DofState = { cInf: number; focusDist: number };
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 export const glide = (u: number) => {
@@ -153,5 +154,93 @@ export function applyCameraKicks(c: CamState, f: number, kicks: [number, number]
     look: [c.look[0] + kx * 0.4, c.look[1] + ky * 0.4, c.look[2]],
     fov: c.fov,
     roll: c.roll + kr,
+  };
+}
+
+/**
+ * Shallow-DOF Rack-Focus Pull (drives `LensBlur` `focusDist` & `cInf` directly inside `dofAt(id, f)`!).
+ * Holds crisp focus on a foreground prop (`focusA`, e.g. 0.85 m) while blurring the background actor,
+ * then snaps focus smoothly to the background subject (`focusB`, e.g. 2.6 m) between `pullStart` and `pullEnd`!
+ */
+export function rackFocusPull(
+  focusA: number,
+  focusB: number,
+  u: number,
+  opts: { pullStart?: number; pullEnd?: number; cInf?: number } = {}
+): DofState {
+  const s0 = opts.pullStart ?? 0.35;
+  const s1 = opts.pullEnd ?? 0.68;
+  const raw = (clamp01(u) - s0) / Math.max(0.01, s1 - s0);
+  const k = glide(clamp01(raw));
+  return {
+    focusDist: focusA + (focusB - focusA) * k,
+    cInf: opts.cInf ?? 13.5,
+  };
+}
+
+/**
+ * Extreme Macro Prop / Eye / Dial Insert Camera (`0.55–1.25 m`, narrow cinema telephoto FOV 34–38°).
+ * Ideal for diegetic storytelling props (alarm clocks, flasks, phone alerts, exam scores, eye reflections)!
+ */
+export function macroInsertCam(
+  target: V3,
+  distStart: number,
+  distEnd: number,
+  u: number,
+  opts: { angleDeg?: number; yOff?: number; fov?: number; rollDeg?: number } = {}
+): CamState {
+  const k = flowEase(u);
+  const d = distStart + (distEnd - distStart) * k;
+  const a = ((opts.angleDeg ?? 10) * Math.PI) / 180;
+  return {
+    pos: [target[0] + Math.sin(a) * d, target[1] + (opts.yOff ?? 0.05), target[2] + Math.cos(a) * d],
+    look: target,
+    fov: opts.fov ?? 36,
+    roll: ((opts.rollDeg ?? -1.5) * Math.PI) / 180,
+  };
+}
+
+/**
+ * First-Person POV Camera looking out over hands, a workbench, notebook, smartphone, or steering wheel!
+ * Uses wide immersive FOV (`48–54°`) and subtle organic head sway so the viewer feels INSIDE the character's eyes.
+ */
+export function povCam(
+  eyePos: V3,
+  lookTarget: V3,
+  u: number,
+  opts: { swayX?: number; bobY?: number; fov?: number; rollDeg?: number } = {}
+): CamState {
+  const k = flowEase(u);
+  const sx = Math.sin(k * Math.PI * 2) * (opts.swayX ?? 0.05);
+  const by = Math.sin(k * Math.PI * 3) * (opts.bobY ?? 0.02);
+  return {
+    pos: [eyePos[0] + sx, eyePos[1] + by, eyePos[2]],
+    look: [lookTarget[0] + sx * 0.4, lookTarget[1] + by * 0.3, lookTarget[2]],
+    fov: opts.fov ?? 50,
+    roll: ((opts.rollDeg ?? 0) * Math.PI) / 180 + sx * 0.18,
+  };
+}
+
+/**
+ * Dramatic Pull-Back Crane Reveal (starts intimate on a window/clue/face, then pulls & lifts out to reveal massive scale!).
+ */
+export function craneRevealPull(
+  target: V3,
+  nearDist: number,
+  farDist: number,
+  liftY: number,
+  u: number,
+  opts: { driftX?: number; fovStart?: number; fovEnd?: number } = {}
+): CamState {
+  const k = flowEase(u);
+  const d = nearDist + (farDist - nearDist) * k;
+  const x = (opts.driftX ?? 0.35) * k;
+  const f0 = opts.fovStart ?? 38;
+  const f1 = opts.fovEnd ?? 46;
+  return {
+    pos: [target[0] + x, target[1] + liftY * k, target[2] + d],
+    look: [target[0], target[1] + liftY * 0.28 * k, target[2]],
+    fov: f0 + (f1 - f0) * k,
+    roll: 0,
   };
 }

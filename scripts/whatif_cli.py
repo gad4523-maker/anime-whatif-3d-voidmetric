@@ -753,7 +753,20 @@ def cmd_align_voice(args: argparse.Namespace) -> None:
 
         engine = f"faster-whisper:{args.model}"
         model = WhisperModel(args.model, device="cpu", compute_type="int8")
-        segments, _info = model.transcribe(str(wav_out), word_timestamps=True, language=args.language)
+        # Decode cleanly to 16 kHz mono float32 PCM via FFmpeg so newer PyAV (`av`) versions never crash on `metadata_errors`!
+        audio_input: Any = str(wav_out)
+        try:
+            import numpy as np  # type: ignore
+
+            pcm = subprocess.run(
+                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(wav_out), "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                capture_output=True,
+                check=True,
+            )
+            audio_input = np.frombuffer(pcm.stdout, dtype=np.float32)
+        except Exception:
+            audio_input = str(wav_out)
+        segments, _info = model.transcribe(audio_input, word_timestamps=True, language=args.language)
         for seg in segments:
             for w in getattr(seg, "words", []) or []:
                 txt = (w.word or "").strip()

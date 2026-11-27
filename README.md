@@ -1,10 +1,15 @@
-# `anime-whatif-3d-voidmetric` — Voidmetric `v3.4` Studio 3D Anime "What If" Workflow Pack
+# `anime-whatif-3d-voidmetric` — Voidmetric `v3.5` Studio 3D Anime "What If" Workflow Pack
 
-A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline with **3 Execution Modes** (`INTERACTIVE`, `OVERNIGHT_AUTOPILOT`, and `FAST_REDO`).
+A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks / Codex → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline with **3 Execution Modes** (`INTERACTIVE`, `OVERNIGHT_AUTOPILOT`, and `FAST_REDO`).
 
 ---
 
-## `v3.4` Custom-First Studio Engine & Modes Highlights
+## `v3.5` Studio Cinema, Custom-First Engine & Modes Highlights
+
+- **Viral Shorts Cinema Toolkit (`cam3d_core.ts`, `lights.ts`, `vfx3d_core.ts`):**
+  - **12 Cinema Camera Primitives:** Adds shallow-DOF **`rackFocusPull`** (driving live `LensBlur` `focusDist`), **`macroInsertCam`** (`0.6–1.2 m` diegetic prop/eye macros), **`povCam`** (first-person POV), and **`craneRevealPull`** (intimate window/detail pull-back to massive scale) alongside `orbitCam`, `dutchPush`, `crashZoom`, `lowAngleHero`, `overShoulder`, `handheldBreath`, and `flowEase` (`0%` held frames!).
+  - **10-Mood 3-Act Lighting Arc (`lights.ts`):** Adds **`golden_sunset`**, **`twilight_indigo`**, **`storm_rain`**, and **`warm_lantern`** alongside `morning`, `day`, `golden`, `cosmic_void`, `night_room`, and `space` so every short transforms color temperature across acts!
+  - **Grounded Atmospheric Depth (`vfx3d_core.ts`):** Adds **`SunbeamShaft3D`** (diagonal volumetric window light shafts) and **`AtmosphericWeather3D`** (`"rain"`, `"snow"`, `"sparks"`, `"dust"`, strictly `NOINK`), plus mandatory Act 3 **3D Mechanism Cutaway** & **Diegetic Storytelling Props** rules!
 
 - **3 Execution Modes (`SKILL.md`) — Hands-On OR Sleep Mode!:**
   - **`MODE: INTERACTIVE` (default):** Pauses at Stage 3 (Lore/Script) AND Stage 4 (3D Character Turnaround) for hands-on approval before building worlds & zipping.
