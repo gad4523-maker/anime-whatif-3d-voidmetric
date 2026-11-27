@@ -67,10 +67,12 @@ pip install -q numpy scipy pillow
 
 Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif_cli.py ...` (Gemini Tasks Linux sandbox). All subcommands write structured JSON to `--output` and exit `1` on errors:
 
-1. **`init-episode`** — Scaffolds `projects/<slug>/` + `src/videos/<slug>/` with `rig3d_core.ts`, **locked `rig3d_mc.ts`**, `rig3d_guest.ts`, `vfx3d.ts`, `Subtitles.tsx`, `LookCheck3D.tsx`, `EpisodeShort.tsx`, `mix_episode.py`, `dsp.py`, and doc templates. Pass `--bootstrap-remotion` on fresh cloud sandboxes and `--profile cloud-1080p|local-2k`.
-2. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`, `halfHeight = D * tan(fov/2)`) to catch limb/hair/orb/kanji clipping BEFORE rendering.
-3. **`sync-subtitles`** — Converts measured word timestamps JSON (`{words: [{word, start, end}]}`) into clean steady karaoke `subtitles_data.ts` matching `Subtitles.tsx`.
-4. **`render-cloud`** — OOM-proof, **resumable chunked 1080p CPU renderer** for Gemini Tasks (`--gl swangle --concurrency 1 --chunk-frames 300`, cleans `/tmp/remotion-tmp` between every chunk, concatenates losslessly via FFmpeg `-c copy`, and muxes `--audio` cleanly).
+1. **`init-episode`** — Scaffolds a **100% immediately compilable (`tsc --noEmit` = 0 errors)** episode workspace (`projects/<slug>/` + `src/videos/<slug>/`) with `rig3d_core.ts`, **locked `rig3d_mc.ts`**, `rig3d_guest.ts`, `vfx3d.ts`, `Subtitles.tsx` (with bundled OFL `Montserrat-Black.ttf`), `CastSheet3D.tsx`, `LookCheck3D.tsx`, `EpisodeShort.tsx`, `lights.ts`, `story.ts`, `cast.ts`, `world.ts`, `subtitles_data.ts`, `mix_episode.py`, `dsp.py`, and doc templates. Pass `--bootstrap-remotion` on fresh cloud sandboxes and `--profile cloud-1080p|local-2k`.
+2. **`align-voice`** — Converts uploaded voiceover (`.mp3`/`.wav`/`.m4a`) cleanly to 48 kHz 24-bit stereo `voice.wav` and extracts exact Whisper word-level timestamps (`words.json`) via `faster-whisper` or `openai-whisper`.
+3. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`, `halfHeight = D * tan(fov/2)`) to catch limb/hair/orb/kanji clipping BEFORE rendering.
+4. **`sync-subtitles`** — Converts measured word timestamps JSON (`words.json`) into clean steady karaoke `subtitles_data.ts` matching `Subtitles.tsx`.
+5. **`package-colab`** — Pure-Python `zipfile` packager (no external `zip` binary needed!) that cleanly bundles `workspace-remotion` for Google Colab Pro while excluding `node_modules/`, `.git/`, and temp caches.
+6. **`render-cloud`** — OOM-proof, **resumable chunked 1080p CPU renderer** for Gemini Tasks (`--gl swangle --concurrency 1 --chunk-frames 300`, cleans `/tmp/remotion-tmp` between every chunk, concatenates losslessly via FFmpeg `-c copy`, and muxes `--audio` cleanly).
    ```bash
    python3 scripts/whatif_cli.py render-cloud \
      --remotion-root ./workspace-remotion \
@@ -82,8 +84,12 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
      --gl swangle --concurrency 1 --crf 17 \
      --output /tmp/render_report.json
    ```
-5. **`compress-ref`** — Compresses a master MP4 into a GitHub-safe showcase MP4 (`<= --max-mb`, default `720×1280` H.264).
-6. **`qa-audit`** — Runs `scripts/short_qa.py` and enforces Voidmetric thresholds for `--profile cloud-1080p` (`1080×1920`, `30 fps`) or `--profile local-2k` (`1440×2560`, `30 fps`), `-16.5..-13.0 LUFS`, `0` black/frozen frames, `<= 5%` held frames.
+7. **`compress-ref`** — Compresses a master MP4 into a GitHub-safe showcase MP4 (`<= --max-mb`, default `720×1280` H.264).
+8. **`qa-audit`** — Runs `scripts/short_qa.py` and enforces Voidmetric thresholds for `--profile cloud-1080p` (`1080×1920`, `30 fps`) or `--profile local-2k` (`1440×2560`, `30 fps`), `-16.5..-13.0 LUFS`, `0` black/frozen frames, `<= 5%` held frames.
+9. **Cross-Platform `.glb` Rig Exporter:**
+   ```bash
+   node scripts/export_rigs_glb.mjs --remotion-root ./workspace-remotion --slug <slug> --rigs mc:rig3d_mc.ts:buildMCRig3D:wake_orb,guest:rig3d_guest.ts:buildGuestRig3D:power_point
+   ```
 
 ---
 
@@ -138,8 +144,8 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 4. **Present the rendered character showcase images to the user and STOP.** Wait for explicit approval (or apply any likeness/proportion/detail fixes requested and re-show) before starting Stages 5–7!
 
 ### Stage 5 — Audio Mastering & Rock-Steady Karaoke Subtitle Sync
-1. Keep the user's uploaded voiceover **100% untouched** (48 kHz stereo WAV).
-2. Measure word/clause timestamps (`words.json`) and run `whatif_cli.py sync-subtitles` to generate `subtitles_data.ts` + `shots.json`.
+1. Keep the user's uploaded voiceover **100% untouched** — run `whatif_cli.py align-voice --input <uploaded_voice> --wav-out projects/<slug>/voice/voice.wav --words-out projects/<slug>/voice/words.json --fps 30` to convert to 48 kHz 24-bit WAV and extract exact Whisper word timestamps automatically.
+2. Run `whatif_cli.py sync-subtitles` on `words.json` to generate `subtitles_data.ts` + verify exact beat sync (every visual impact in `story.ts` lands `0–3 frames` before its spoken punch word!).
 3. Master `mix.wav` via `mix_episode.py` + `dsp.py` (`-14.5 LUFS`, true peak `<= -0.8 dBTP`, 0 unintended silences, hard dead-silence music drop on the mid-video twist question).
 
 ### Stage 6 — 3D World, Bone-Locked VFX & Zero-Clipping 9:16 Look-Check Gate
@@ -156,10 +162,7 @@ Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
    Before starting the full render, **always ask the user:**
    > *"All 16 Look-Check frames passed with zero clipping! Do you have **Google Colab Pro (`L4`/`T4` GPU)** to render this in ~2–4 minutes (1080p or 2K), or should I render the full **1080p 30 fps** video myself right here?"*
    - **If user says YES (has Google Colab Pro):**
-     1. Zip the verified Remotion workspace (excluding `node_modules/` and temp caches) into `episode_<slug>_colab_bundle.zip`:
-        ```bash
-        zip -r -q episode_<slug>_colab_bundle.zip workspace-remotion -x "*/node_modules/*" "*/.git/*" "*/remotion-tmp/*"
-        ```
+     1. Run `python3 scripts/whatif_cli.py package-colab --remotion-root ./workspace-remotion --slug <slug> --out-zip ./episode_<slug>_colab_bundle.zip --output /tmp/pkg_colab.json` (pure-Python zip, excludes `node_modules/` & caches, verifies `package.json` + `mix.wav`).
      2. Deliver the `.zip` along with the 1-click Colab Pro link:
         `https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb` (remind them to pick **`L4 GPU`** or **`T4 GPU`**, never A100/TPU).
    - **If user says NO (no Colab — self-render right here in `1080p 30 fps`):**

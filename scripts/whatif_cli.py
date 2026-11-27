@@ -26,6 +26,7 @@ import re
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 from typing import Any
 
@@ -91,33 +92,39 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             root_dst.write_text(root_txt.replace("{{EPISODE_SLUG}}", slug), encoding="utf-8")
             copied_files.append(str(root_dst))
 
-    # Locked Voidmetric 3D Anime Rig core + permanent Channel MC rig + guest rig starter
+    # Always ensure bundled OFL Montserrat-Black font exists in public/fonts for identical Windows/Linux/Colab subtitles!
+    copy_if_missing(
+        TEMPLATES_DIR / "starter-remotion" / "public" / "fonts" / "Montserrat-Black.ttf",
+        remotion_root / "public" / "fonts" / "Montserrat-Black.ttf",
+    )
+
+    # Locked Voidmetric 3D Anime Rig core + permanent Channel MC rig + compilable guest rig starter
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_core.ts", src_dir / "rig3d_core.ts")
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_mc.ts", src_dir / "rig3d_mc.ts")
     copy_if_missing(TEMPLATES_DIR / "rigs3d" / "rig3d_guest_template.ts", src_dir / "rig3d_guest.ts")
 
-    # 3D GLSL VFX starter + locked clean floating subtitles + LookCheck3D
+    # 3D GLSL VFX starter + locked clean floating subtitles + compilable world/story/cast/lights/LookCheck3D starters
     copy_if_missing(TEMPLATES_DIR / "vfx" / "vfx3d_core.ts", src_dir / "vfx3d.ts")
-    copy_if_missing(TEMPLATES_DIR / "composition" / "Subtitles.tsx", src_dir / "Subtitles.tsx")
-    copy_if_missing(TEMPLATES_DIR / "composition" / "LookCheck3D.tsx", src_dir / "LookCheck3D.tsx")
+    for comp_file in ["Subtitles.tsx", "LookCheck3D.tsx", "lights.ts", "story.ts", "cast.ts", "world.ts", "subtitles_data.ts"]:
+        copy_if_missing(TEMPLATES_DIR / "composition" / comp_file, src_dir / comp_file)
 
-    # Instantiate EpisodeShort.tsx with profile MSAA (0 on cloud CPU swangle, 4 on GPU PC)
-    ep_dst = src_dir / "EpisodeShort.tsx"
-    if not ep_dst.exists() or args.force:
-        ep_txt = (TEMPLATES_DIR / "composition" / "ShortTemplate.tsx").read_text(encoding="utf-8")
-        ep_dst.write_text(ep_txt.replace("{{MSAA_SAMPLES}}", msaa), encoding="utf-8")
-        copied_files.append(str(ep_dst))
+    # Instantiate EpisodeShort.tsx & Stage 4 CastSheet3D.tsx with profile MSAA (0 on cloud CPU swangle, 4 on GPU PC)
+    for tpl_name, out_name in [("ShortTemplate.tsx", "EpisodeShort.tsx"), ("CastSheet3D.tsx", "CastSheet3D.tsx")]:
+        dst = src_dir / out_name
+        if not dst.exists() or args.force:
+            txt = (TEMPLATES_DIR / "composition" / tpl_name).read_text(encoding="utf-8")
+            dst.write_text(txt.replace("{{MSAA_SAMPLES}}", msaa), encoding="utf-8")
+            copied_files.append(str(dst))
 
     # Audio master mix template + BS.1770-4 DSP core
     copy_if_missing(TEMPLATES_DIR / "audio" / "mix_template.py", proj_dir / "audio" / "mix_episode.py")
     copy_if_missing(TEMPLATES_DIR / "audio" / "dsp.py", proj_dir / "audio" / "dsp.py")
 
-    # Ensure shared bridge post-processing exists
+    # Ensure shared bridge post-processing + cardshade exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
-    if not bridge_dir.exists() or args.force:
-        bridge_dir.mkdir(parents=True, exist_ok=True)
-        for eng_file in ["ink.ts", "lensblur.ts", "grade.ts", "shade.ts"]:
-            copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
+    bridge_dir.mkdir(parents=True, exist_ok=True)
+    for eng_file in ["ink.ts", "lensblur.ts", "grade.ts", "shade.ts", "cardshade.ts"]:
+        copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
 
     # Instantiate doc templates with episode title & slug
     for tpl_name, dst_name in [
@@ -645,6 +652,151 @@ def cmd_qa_audit(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ---------------------------------------------------------------------------
+# 7. align-voice (Convert voice to 48 kHz stereo WAV + Whisper word timestamps)
+# ---------------------------------------------------------------------------
+def cmd_align_voice(args: argparse.Namespace) -> None:
+    src = Path(args.input).resolve()
+    if not src.exists():
+        fail(f"Input voiceover not found: {src}")
+
+    wav_out = Path(args.wav_out).resolve()
+    words_out = Path(args.words_out).resolve()
+    wav_out.parent.mkdir(parents=True, exist_ok=True)
+    words_out.parent.mkdir(parents=True, exist_ok=True)
+
+    # 1. Convert untouched voiceover cleanly to 48 kHz 24-bit stereo WAV
+    ff = subprocess.run(
+        ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-i", str(src), "-ar", "48000", "-ac", "2", "-c:a", "pcm_s24le", str(wav_out)],
+        capture_output=True,
+        text=True,
+    )
+    if ff.returncode != 0:
+        fail(f"FFmpeg WAV conversion failed: {ff.stderr.strip()}")
+
+    # Probe exact duration
+    pr = subprocess.run(
+        ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", str(wav_out)],
+        capture_output=True,
+        text=True,
+    )
+    if pr.returncode != 0:
+        fail(f"ffprobe failed: {pr.stderr.strip()}")
+    dur_s = float(pr.stdout.strip())
+    fps = int(args.fps)
+    total_frames = int(math.ceil(dur_s * fps))
+
+    # 2. Extract word-level timestamps via faster-whisper (preferred) or openai-whisper
+    words: list[dict[str, Any]] = []
+    engine = "none"
+    try:
+        from faster_whisper import WhisperModel  # type: ignore
+
+        engine = f"faster-whisper:{args.model}"
+        model = WhisperModel(args.model, device="cpu", compute_type="int8")
+        segments, _info = model.transcribe(str(wav_out), word_timestamps=True, language=args.language)
+        for seg in segments:
+            for w in getattr(seg, "words", []) or []:
+                txt = (w.word or "").strip()
+                if txt:
+                    words.append({"word": txt, "start": round(float(w.start), 3), "end": round(float(w.end), 3)})
+    except ImportError:
+        try:
+            import whisper  # type: ignore
+
+            engine = f"openai-whisper:{args.model}"
+            model = whisper.load_model(args.model)
+            res = model.transcribe(str(wav_out), word_timestamps=True, language=args.language)
+            for seg in res.get("segments", []):
+                for w in seg.get("words", []):
+                    txt = str(w.get("word", "")).strip()
+                    if txt:
+                        words.append({"word": txt, "start": round(float(w["start"]), 3), "end": round(float(w["end"]), 3)})
+        except ImportError:
+            fail(
+                "Neither `faster-whisper` nor `openai-whisper` is installed. "
+                "Install with: pip install faster-whisper (or run via `uv run --with faster-whisper scripts/whatif_cli.py align-voice ...`)."
+            )
+
+    payload = {
+        "source": str(src),
+        "wav_48k": str(wav_out),
+        "engine": engine,
+        "duration_s": round(dur_s, 3),
+        "fps": fps,
+        "total_frames": total_frames,
+        "word_count": len(words),
+        "words": words,
+    }
+    write_json(words_out, payload)
+    if args.output:
+        write_json(Path(args.output).resolve(), {k: v for k, v in payload.items() if k != "words"})
+    print(f"Success! Aligned {len(words)} words ({dur_s:.2f}s = {total_frames}f @ {fps}fps via {engine}) -> {words_out}")
+
+
+# ---------------------------------------------------------------------------
+# 8. package-colab (Pure-Python Zip Exporter — Zero External `zip` Binary Needed!)
+# ---------------------------------------------------------------------------
+def cmd_package_colab(args: argparse.Namespace) -> None:
+    remotion_root = Path(args.remotion_root).resolve()
+    slug = args.slug.strip()
+    out_zip = Path(args.out_zip).resolve()
+
+    if not (remotion_root / "package.json").exists():
+        fail(f"package.json not found in remotion_root: {remotion_root}")
+    proj_dir = remotion_root / "projects" / slug
+    if not proj_dir.exists():
+        fail(f"Episode project directory not found: {proj_dir}")
+
+    skip_dirs = {"node_modules", ".git", "remotion-tmp", "__pycache__", ".venv", "stills_3d", "qa_3d", "qa", "qa_colab"}
+    skip_suffixes = {".pyc", ".pyo", ".tmp"}
+
+    out_zip.parent.mkdir(parents=True, exist_ok=True)
+    file_count = 0
+    found_mix = False
+    found_shots = False
+
+    with zipfile.ZipFile(out_zip, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        for dirpath, dirnames, filenames in os.walk(remotion_root):
+            cur = Path(dirpath)
+            dirnames[:] = [
+                d for d in dirnames
+                if d not in skip_dirs and not d.endswith("_chunks") and not d.startswith("remotion-webpack-bundle-")
+            ]
+            # Only include the requested episode inside projects/ (skip unrelated episodes to keep zip small!)
+            if cur == remotion_root / "projects":
+                dirnames[:] = [d for d in dirnames if d == slug]
+
+            for fn in filenames:
+                fp = cur / fn
+                if fp.suffix.lower() in skip_suffixes or fp == out_zip:
+                    continue
+                if fn.endswith(("_silent.mp4", "2K.mp4", "2k.mp4")) and "references" not in fp.parts:
+                    continue
+                rel = fp.relative_to(remotion_root)
+                arcname = Path(remotion_root.name) / rel
+                zf.write(fp, arcname.as_posix())
+                file_count += 1
+                if re.match(r"mix.*\.wav$", fn):
+                    found_mix = True
+                if re.match(r"shots.*\.json$", fn):
+                    found_shots = True
+
+    size_mb = round(out_zip.stat().st_size / (1024 * 1024), 2)
+    report = {
+        "status": "ok",
+        "slug": slug,
+        "out_zip": str(out_zip),
+        "file_count": file_count,
+        "size_mb": size_mb,
+        "contains_mastered_mix_wav": found_mix,
+        "contains_shots_json": found_shots,
+        "colab_notebook_url": "https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb",
+    }
+    write_json(Path(args.output).resolve(), report)
+    print(f"Success! Packaged {file_count} files ({size_mb} MB, mix_wav={found_mix}) -> {out_zip}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whatif_cli.py", description="Voidmetric Anime What-If 3D Short CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -710,6 +862,23 @@ def build_parser() -> argparse.ArgumentParser:
     p_qa.add_argument("--profile", choices=["cloud-1080p", "local-2k"], required=True, help="Target resolution profile (cloud-1080p=1080x1920, local-2k=1440x2560)")
     p_qa.add_argument("--output", required=True, help="Path to write structured QA JSON report")
     p_qa.set_defaults(func=cmd_qa_audit)
+
+    p_al = sub.add_parser("align-voice", help="Convert voiceover to 48 kHz WAV and extract Whisper word-level timestamps")
+    p_al.add_argument("--input", required=True, help="Input voiceover file (.mp3/.wav/.m4a)")
+    p_al.add_argument("--wav-out", required=True, help="Output 48 kHz stereo WAV path")
+    p_al.add_argument("--words-out", required=True, help="Output words.json path")
+    p_al.add_argument("--fps", type=int, required=True, help="Target FPS (30)")
+    p_al.add_argument("--model", default="base", help="Whisper model size (tiny/base/small, default base)")
+    p_al.add_argument("--language", default="en", help="Spoken language code (default en)")
+    p_al.add_argument("--output", default="", help="Optional compact alignment summary JSON path")
+    p_al.set_defaults(func=cmd_align_voice)
+
+    p_pkg = sub.add_parser("package-colab", help="Create a clean Colab-ready .zip bundle (excludes node_modules/temp caches)")
+    p_pkg.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
+    p_pkg.add_argument("--slug", required=True, help="Episode slug to bundle")
+    p_pkg.add_argument("--out-zip", required=True, help="Destination .zip path")
+    p_pkg.add_argument("--output", required=True, help="Path to write packaging manifest JSON")
+    p_pkg.set_defaults(func=cmd_package_colab)
 
     return p
 

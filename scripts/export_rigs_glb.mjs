@@ -1,25 +1,101 @@
-// Exports Lord Beerus, Channel MC, and Whis 3D Anime Rigs to standard binary .glb files
-// WITH full embedded 1024x1024 painted Canvas2D face/costume/hair PNG textures & full bone hierarchy!
+// Cross-Platform Portable .glb Exporter for Voidmetric 3D Anime Rigs (Windows + Debian 12 Linux + Google Colab!)
+// Usage:
+//   node scripts/export_rigs_glb.mjs \
+//     --remotion-root ./workspace-remotion \
+//     --slug gojo-limitless \
+//     --rigs mc:rig3d_mc.ts:buildMCRig3D:wake_orb,guest:rig3d_guest.ts:buildGuestRig3D:power_point
 import http from "node:http";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import esbuild from "esbuild";
+import { spawn, execSync } from "node:child_process";
+import { createRequire } from "node:module";
 
-const ROOT = "F:/burgess/remotion-shorts";
-const OUT_DIR = path.join(ROOT, "projects/beerus-hakai/rigs3d");
-const CHROME = "C:/Program Files/Google/Chrome/Application/chrome.exe";
+function parseArgs(argv) {
+  const out = {};
+  for (let i = 2; i < argv.length; i++) {
+    const a = argv[i];
+    if (a.startsWith("--")) {
+      const k = a.slice(2);
+      const v = argv[i + 1] && !argv[i + 1].startsWith("--") ? argv[++i] : "true";
+      out[k] = v;
+    }
+  }
+  return out;
+}
 
-const ENTRY_SRC = `
+function findBrowser(remotionRoot, override) {
+  if (override && fs.existsSync(override)) return override;
+  const candidates = [];
+  if (process.platform === "win32") {
+    candidates.push(
+      "C:/Program Files/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
+      "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe"
+    );
+  } else {
+    for (const cmd of ["chromium", "chromium-browser", "google-chrome", "google-chrome-stable"]) {
+      try {
+        const p = execSync(`which ${cmd}`, { stdio: ["ignore", "pipe", "ignore"] }).toString().trim();
+        if (p) candidates.push(p);
+      } catch {}
+    }
+  }
+  // Check Remotion's bundled chrome-headless-shell inside node_modules/.remotion
+  const remotionDir = path.join(remotionRoot, "node_modules", ".remotion");
+  if (fs.existsSync(remotionDir)) {
+    const walk = (dir) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory()) walk(full);
+        else if (/^(chrome|chrome-headless-shell)(\.exe)?$/i.test(entry.name)) candidates.push(full);
+      }
+    };
+    walk(remotionDir);
+  }
+  for (const c of candidates) {
+    if (c && fs.existsSync(c)) return c;
+  }
+  throw new Error("No Chromium/Chrome executable found. Install chromium or run `npx remotion browser ensure`.");
+}
+
+async function main() {
+  const args = parseArgs(process.argv);
+  const remotionRoot = path.resolve(args["remotion-root"] || ".");
+  const slug = args.slug;
+  if (!slug) {
+    console.error("ERROR: --slug is required (e.g. --slug gojo-limitless)");
+    process.exit(1);
+  }
+
+  const rigSpecsRaw = args.rigs || "mc:rig3d_mc.ts:buildMCRig3D:wake_orb,guest:rig3d_guest.ts:buildGuestRig3D:idle";
+  const rigSpecs = rigSpecsRaw.split(",").map((item) => {
+    const [outName, file, fnName, pose = "idle"] = item.split(":");
+    return { outName, file, fnName, pose };
+  });
+
+  const outDir = path.resolve(args["out-dir"] || path.join(remotionRoot, "projects", slug, "rigs3d"));
+  fs.mkdirSync(outDir, { recursive: true });
+
+  // Resolve esbuild from the target Remotion project's node_modules
+  const req = createRequire(path.join(remotionRoot, "package.json"));
+  const esbuild = req("esbuild");
+
+  const srcBase = path.join(remotionRoot, "src", "videos", slug).replace(/\\/g, "/");
+  const imports = rigSpecs
+    .map((r, i) => `import { ${r.fnName} as buildRig_${i} } from "${srcBase}/${r.file}";`)
+    .join("\n");
+  const listEntries = rigSpecs
+    .map((r, i) => `["${r.outName}_3d_rig.glb", buildRig_${i}(), "${r.pose}"]`)
+    .join(",\n    ");
+
+  const entrySrc = `
 import * as THREE from "three";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import { buildBeerusRig3D } from "${ROOT}/src/videos/beerus/rig3d_beerus.ts";
-import { buildMCRig3D } from "${ROOT}/src/videos/beerus/rig3d_mc.ts";
-import { buildWhisRig3D } from "${ROOT}/src/videos/beerus/rig3d_whis.ts";
+${imports}
 
 function toExportableScene(rigRoot) {
-  const clone = rigRoot;
-  clone.traverse((obj) => {
+  rigRoot.traverse((obj) => {
     if (!obj.isMesh) return;
     if (obj.name.endsWith("_ink")) {
       obj.material = new THREE.MeshBasicMaterial({ color: "#13091d", side: THREE.BackSide });
@@ -27,7 +103,7 @@ function toExportableScene(rigRoot) {
     }
     const m = obj.material;
     if (m && m.uniforms && m.uniforms.uBaseColor) {
-      const std = new THREE.MeshStandardMaterial({
+      obj.material = new THREE.MeshStandardMaterial({
         color: m.uniforms.uBaseColor.value.clone(),
         map: m.uniforms.uMap.value || null,
         metalness: m.uniforms.uMetalness.value * 0.85,
@@ -38,18 +114,15 @@ function toExportableScene(rigRoot) {
         opacity: m.uniforms.uOpacity.value,
         side: m.side,
       });
-      obj.material = std;
     }
   });
-  return clone;
+  return rigRoot;
 }
 
 async function run() {
   const exporter = new GLTFExporter();
   const rigs = [
-    ["beerus_3d_rig.glb", buildBeerusRig3D({ snarl: false }), "regal"],
-    ["mc_3d_rig.glb", buildMCRig3D({ hakaiEyes: true }), "wake_orb"],
-    ["whis_3d_rig.glb", buildWhisRig3D(), "regal_staff"],
+    ${listEntries}
   ];
   for (const [filename, rig, pose] of rigs) {
     rig.setPose(pose, 0);
@@ -61,25 +134,24 @@ async function run() {
   await fetch("/done", { method: "POST" });
 }
 run().catch(async (err) => {
-  await fetch("/error", { method: "POST", body: String(err && err.stack || err) });
+  await fetch("/error", { method: "POST", body: String((err && err.stack) || err) });
 });
 `;
 
-async function main() {
-  fs.mkdirSync(OUT_DIR, { recursive: true });
   const built = await esbuild.build({
-    stdin: { contents: ENTRY_SRC, resolveDir: ROOT, loader: "ts" },
+    stdin: { contents: entrySrc, resolveDir: remotionRoot, loader: "ts" },
     bundle: true,
     write: false,
     format: "iife",
     platform: "browser",
   });
-  const jsBundle = built.outputFiles[0].text;
-  const html = `<!doctype html><html><body><script>${jsBundle}</script></body></html>`;
+  const html = `<!doctype html><html><body><script>${built.outputFiles[0].text}</script></body></html>`;
+
+  const chromeBin = findBrowser(remotionRoot, args.chrome);
+  const prof = path.join(os.tmpdir(), `voidmetric-glb-profile-${Date.now()}`);
+  fs.mkdirSync(prof, { recursive: true });
 
   let chromeProc = null;
-  const saved = [];
-
   const server = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/") {
       res.writeHead(200, { "Content-Type": "text/html" });
@@ -92,10 +164,8 @@ async function main() {
       req.on("data", (c) => chunks.push(c));
       req.on("end", () => {
         const buf = Buffer.concat(chunks);
-        const dest = path.join(OUT_DIR, name);
-        fs.writeFileSync(dest, buf);
-        saved.push({ name, bytes: buf.length });
-        console.log(`EXPORTED ${name} (${(buf.length / 1024).toFixed(1)} KB)`);
+        fs.writeFileSync(path.join(outDir, name), buf);
+        console.log(`EXPORTED ${name} (${(buf.length / 1024).toFixed(1)} KB) -> ${outDir}`);
         res.writeHead(200);
         res.end("ok");
       });
@@ -106,6 +176,7 @@ async function main() {
       res.end("bye");
       setTimeout(() => {
         if (chromeProc) chromeProc.kill();
+        fs.rmSync(prof, { recursive: true, force: true });
         server.close();
         process.exit(0);
       }, 150);
@@ -119,6 +190,7 @@ async function main() {
         res.writeHead(500);
         res.end("err");
         if (chromeProc) chromeProc.kill();
+        fs.rmSync(prof, { recursive: true, force: true });
         server.close();
         process.exit(1);
       });
@@ -131,20 +203,15 @@ async function main() {
   server.listen(0, "127.0.0.1", () => {
     const port = server.address().port;
     const url = `http://127.0.0.1:${port}/`;
-    const prof = "F:/remotion-tmp/glb-export-profile";
-    fs.mkdirSync(prof, { recursive: true });
     chromeProc = spawn(
-      CHROME,
-      [
-        "--headless=new",
-        "--no-sandbox",
-        "--disable-gpu",
-        `--user-data-dir=${prof}`,
-        url,
-      ],
+      chromeBin,
+      ["--headless=new", "--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", `--user-data-dir=${prof}`, url],
       { stdio: "ignore" }
     );
   });
 }
 
-main();
+main().catch((err) => {
+  console.error("GLB EXPORT FAILED:", err);
+  process.exit(1);
+});

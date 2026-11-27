@@ -13,7 +13,8 @@ Built from our gold-standard **Beerus Destruction Power 3D Anime Short** combine
 - **Locked Channel Face (`rig3d_mc.ts`):** Permanent 24-bone articulated Channel MC 3D rig (sharp shonen V-jawline, black 3D glasses, 18-lock spiky hair, black zip jacket & white tee) carried across every episode.
 - **Dragon Ball FighterZ–Style 3D Cel-Shaded Anime Rigs (`rig3d_core.ts`):** 3-band GLSL cel shading, smooth-normal inverted-hull ink outlines, 1024×1024 painted UV face maps, 5-finger articulated hands, and portable `.glb` export.
 - **Bone-Locked 3D GLSL Volumetric VFX (`vfx3d_core.ts`):** Real-time `localToWorld` bone attachment, palm-front offsets, spatial dissolve shaders, aura cylinders, shockwaves, and 6-level HDR Mipmap Bloom.
-- **Rock-Steady Floating Karaoke Subtitles (`Subtitles.tsx`):** Clean `60px` baseline typography, crisp dark outline + active-word highlights, zero black box, zero bounce.
+- **Rock-Steady Floating Karaoke Subtitles (`Subtitles.tsx`):** Bundles OFL `Montserrat-Black.ttf` inside `public/fonts/` so chunky `60px` baseline typography renders 100% identically across Windows, Debian 12 Gemini Tasks, and Google Colab (zero black box, zero bounce).
+- **Automated Voice Alignment (`align-voice`) & Colab Bundler (`package-colab`):** Extracts millisecond Whisper word timestamps from uploaded voiceovers and exports clean `.zip` bundles without needing system `zip`.
 - **Zero-Clipping 9:16 Frustum Checker (`whatif_cli.py check-framing`):** Mathematical camera bounds validator + 16-frame `LookCheck3D` pre-render gate.
 - **Automated Master QA (`whatif_cli.py qa-audit` & `short_qa.py`):** Verifies `1080×1920` (cloud) or `1440×2560` (local 2K), `30 fps`, `-14.5 LUFS` loudness, 0 black/frozen frames, and continuous motion contact sheets.
 

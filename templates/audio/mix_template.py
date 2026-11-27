@@ -11,13 +11,19 @@ from scipy import ndimage
 HERE = os.path.dirname(os.path.abspath(__file__))
 PROJ = os.path.dirname(HERE)
 REMOTION_ROOT = os.path.dirname(os.path.dirname(PROJ))
-sys.path.insert(0, os.path.join(REMOTION_ROOT, "audio_template"))
+# Prefer local dsp.py scaffolded right inside projects/<slug>/audio/ (works standalone on Gemini Tasks & Colab!)
+sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(REMOTION_ROOT, "audio_template"))
 
 import dsp  # noqa: E402
 from dsp import SR, TAU, ns, st, dbg, write_wav, integrated, true_peak, fades, place, lp, hp, bp, colored, rng
 
-TOTAL_FRAMES = 1930
-DUR = TOTAL_FRAMES / 30.0  # 64.3333 s
+# Episode-specific master settings (update TOTAL_FRAMES & file names for each episode!)
+TOTAL_FRAMES = 1800
+VOICE_WAV = os.path.join(PROJ, "voice", "voice.wav")
+WORDS_JSON = os.path.join(PROJ, "voice", "words.json")
+OUT_MIX_WAV = os.path.join(HERE, "mix.wav")
+DUR = TOTAL_FRAMES / 30.0
 N = ns(DUR)
 TARGET_LUFS = -14.5
 CEIL_DBTP = -1.1
@@ -33,7 +39,7 @@ def load_audio_48k(path):
 
 
 def load_voice():
-    v = load_audio_48k(os.path.join(PROJ, "voice", "voice_v2.wav"))
+    v = load_audio_48k(VOICE_WAV)
     out = np.zeros((2, N), dtype=np.float64)
     L = min(N, v.shape[1])
     out[:, :L] = v[:, :L]
@@ -293,7 +299,7 @@ def limit_true_peak(x, ceil_db=CEIL_DBTP):
 
 
 def main():
-    data = json.load(open(os.path.join(PROJ, "voice", "words_v2.json"), encoding="utf-8"))
+    data = json.load(open(WORDS_JSON, encoding="utf-8"))
     words = data["words"]
     v = load_voice()
     m_raw = synth_anime_score()
@@ -322,11 +328,11 @@ def main():
     master_gain = dbg(TARGET_LUFS - pre_lufs)
     mix = limit_true_peak(mix_pre * master_gain, CEIL_DBTP)
 
-    out_mix = os.path.join(HERE, "mix_v2.wav")
+    out_mix = OUT_MIX_WAV
     write_wav(out_mix, mix, bits=24)
-    write_wav(os.path.join(HERE, "stem_voice_v2.wav"), v * master_gain, bits=24)
-    write_wav(os.path.join(HERE, "stem_music_v2.wav"), m * master_gain, bits=24)
-    write_wav(os.path.join(HERE, "stem_sfx_v2.wav"), s * master_gain, bits=24)
+    write_wav(os.path.join(HERE, "stem_voice.wav"), v * master_gain, bits=24)
+    write_wav(os.path.join(HERE, "stem_music.wav"), m * master_gain, bits=24)
+    write_wav(os.path.join(HERE, "stem_sfx.wav"), s * master_gain, bits=24)
 
     fin_lufs = integrated(mix)
     fin_tp = true_peak(mix)
