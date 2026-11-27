@@ -21,7 +21,7 @@ import { SubtitlesOverlay } from "./Subtitles";
 export const EPISODE_FRAMES = TOTAL;
 
 // MSAA: MUST be >= 2 when LensBlur is active (postprocessing v6 shares depth buffer at MSAA=0 causing WebGL2 black-screen!).
-// Use 2 on CPU-only cloud sandboxes (Gemini Tasks swangle), 4 on GPU PCs & Colab L4/T4!
+// Use 2 on CPU-only cloud sandboxes (Gemini Tasks swangle), 4 on Local PC GPU (Voidmetric PC Render Studio)!
 const EFFECT_MSAA = {{MSAA_SAMPLES}};
 
 const makeBloom = () => {

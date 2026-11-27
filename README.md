@@ -1,6 +1,6 @@
-# `anime-whatif-3d-voidmetric` — Voidmetric `v3.2` Studio 3D Anime "What If" Workflow Pack
+# `anime-whatif-3d-voidmetric` — Voidmetric `v3.3` Studio 3D Anime "What If" Workflow Pack
 
-A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — supporting **100% cloud execution inside Gemini Tasks (`1080×1920`, 30 fps, CPU-safe chunked rendering)**, **Local PC GPU Render Studio (`1440×2560` 2K)**, and **1-click Google Colab Pro (`L4`/`T4` GPU)**.
+A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline (plus optional `cloud-1080p` fallback rendering right inside Gemini Tasks).
 
 ---
 
@@ -26,17 +26,17 @@ A complete, end-to-end production workflow pack and AI agent skill for creating 
 - **Modular Cel-Shaded 3D Environments, Weapons & Cinematic Cameras (`env3d_core.ts`, `props3d_core.ts`, `cam3d_core.ts`):** Instant inked `twoTone` sets (`buildModernRoom`, `buildCityStreet`, `buildBattlefieldCrater`, `buildForestGrove`, `buildCosmicRealm`, `buildCelClouds`, `buildStarfield`), hand-socketed 3D props (`buildKatana3D`, `buildStaff3D`, `buildEnergyBlade3D`, `buildScienceFlask3D`, `buildCoffeeMug3D`, `buildSmartphone3D`), and MAPPA/Ufotable camera primitives (`orbitCam`, `dutchPush`, `crashZoom`, `lowAngleHero`, `overShoulder`, `handheldBreath`, `clampSafe916Dist`).
 - **Full-Canon Lore & Power Fact-Checker Gate (NOT Anime-Only!):** Prioritizes **original source canon** (Manga, Manhwa, Light Novels, Official Databooks, Author Q&As) alongside Canon Anime, excludes non-canon filler/fan myths, flags unadapted spoilers, and runs an adversarial script audit before rigging or audio.
 - **Data-Driven 5-Mood Audio Mastering (`mix_template.py` + `audio_cues.json`):** Untouched voiceover + `audio_cues.json` + 5 procedural anime score moods (`shonen_battle`, `dark_cosmic`, `mystery_science`, `cyber_thriller`, `tragic_twist`) mastered to `-14.5 LUFS` / `<= -1.1 dBTP` (BS.1770-4 @ 48 kHz / 24-bit).
-- **100% Cloud-Ready (`cloud-1080p`) + Colab Pro GPU + Publishing Extras:** WebGL2-safe `MSAA = 2` swangle profile, resumable 300f chunked renderer (`render-cloud`), 1-click Colab Pro `L4`/`T4` notebook (`package-colab`), bundled OFL `Montserrat-Black.ttf` karaoke subtitles, subtitle-free `EpisodeThumb`, `align-voice`, `export-srt`, `check-beats`, `check-framing`, and `qa-audit`.
+- **Gemini Tasks → Local PC GPU Pipeline (`package-pc`) + Publishing Extras:** Build Stages 1–6 in Gemini Tasks (WebGL2-safe `MSAA = 2` swangle Look-Check), export a clean `.zip` via `package-pc` (excluding `node_modules/`), and drag-and-drop into **Voidmetric PC Render Studio** for fast native 2K GPU rendering (`MSAA = 4`, `--gl=angle`) + automatic audio mux + `EpisodeThumb` + `short_qa.py`! Also includes optional `render-cloud` fallback, bundled OFL `Montserrat-Black.ttf` karaoke subtitles, `align-voice`, `export-srt`, `check-beats`, `check-framing`, and `qa-audit`.
 
 ---
 
-## Using This Pack 100% Inside Gemini Tasks (`1080×1920`, 30 fps)
+## Using This Pack Inside Gemini Tasks (Build in Cloud → Render 2K on Your PC!)
 
 Start a new **Gemini Tasks** session and paste this prompt:
 
 ```text
 Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
-Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile (1080x1920 @ 30 fps, MSAA=2, --gl=swangle, --concurrency=1, chunked render via `python3 scripts/whatif_cli.py render-cloud`).
+Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile for cloud Look-Check stills (MSAA=2, --gl=swangle, --concurrency=1).
 
 Topic: "What If You Woke Up With [CHARACTER]'s Power?"
 
@@ -46,17 +46,16 @@ Start at Stage 1 & Stage 2:
 3. PAUSE for my approval on the fact sheet & script.
 4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create highly accurate, detailed 3D anime character rigs using `buildAnimeHead3D()` + `createAnimeFaceController()` matching EVERY proportion, facial feature, sculpted hair lock, outfit detail, and accessory of the original character from my reference images (never circle heads or generic placeholders!). Render all turnaround, 3/4 profile, cast lineup, AND live expression plates (`f0..f5`) and SHOW ME the created characters. Do NOT proceed further to video/world/VFX creation until I explicitly approve the characters!
 5. STAGE 6 CUSTOM-FIRST WORLDS, VFX & CINEMATOGRAPHY: Hardcoded environment & VFX presets are OPTIONAL — freely build ANY custom textured 3D location (`makePaintedMat`/`makeEnvTex`/`celTex`/`hash01`) and ANY bespoke 3D GLSL/physical VFX (`createCustomVFXMat`/`NOISE_GLSL`/`setNoInkTree`/`getGlowSpriteTex`) the episode needs (zero untextured Play-Doh boxes, and zero fantasy magic auras on grounded anime!). Mix close-ups/inserts/mediums/wides (`shot_type` in `check-framing`), stage characters off-center beside chalkboards/blueprints, and never leave MC frozen holding an invisible orb!
-6. STAGE 7 RENDER CHOICE: Once Stage 6 Look-Check passes, ASK ME whether I want the `.zip` bundle (`package-colab`, including `shots.json` & `mix.wav`) to render on my Local PC Render Studio or Google Colab Pro GPU, OR if you should render the full 1080p 30 fps video right here via `python3 scripts/whatif_cli.py render-cloud` + `qa-audit`.
+6. STAGE 7 PC RENDER EXPORT: Once all 16 Stage 6 Look-Check tiles pass visual inspection (and `projects/<slug>/out/shots.json` + mastered `mix.wav` are ready), DO NOT waste time CPU-rendering in the cloud — immediately package the workspace via `python3 scripts/whatif_cli.py package-pc` and deliver the `.zip` bundle so I can drag-and-drop it into my Voidmetric PC Render Studio app to render native 2K on my PC!
 ```
 
 ---
 
-## Super-Fast Cloud GPU Rendering With Google Colab Pro (`L4` / `T4` GPU)
+## Fast Native 2K Rendering on Your PC (`Voidmetric PC Render Studio`)
 
-Want **full 2K (`1440×2560`) or 1080p in ~2–4 minutes** without waiting on Gemini Tasks' 2-vCPU sandbox?
-1. Let **Gemini Tasks** finish Stages 1–6 and run `whatif_cli.py package-colab` to create the `.zip` bundle.
-2. Open [`colab/Voidmetric_GPU_Render.ipynb`](colab/Voidmetric_GPU_Render.ipynb) in **Google Colab Pro**, choose **`L4 GPU`** (best) or **`T4 GPU`** (cheapest fast option) — skip `A100` & `TPUs`.
-3. Upload the `.zip` (or pull from GitHub/Drive) and click **Run All** — it auto-tests `--gl=angle-egl`, upgrades `MSAA` to `4`, renders in ~2–4 min, runs `short_qa.py`, displays a preview contact sheet, and saves the finished MP4 directly to Google Drive.
+1. Let **Gemini Tasks** finish Stages 1–6 and export `episode_<slug>_pc_bundle.zip` via `whatif_cli.py package-pc`.
+2. Open **Voidmetric PC Render Studio** on your Windows PC (`http://127.0.0.1:7860`).
+3. Drag & drop the `.zip` file and click **Start PC Render** — it links local `node_modules` in 0 seconds, upgrades `EFFECT_MSAA` to `4`, renders native **2K (`1440×2560`, 30 fps)** on your local GPU (`--gl=angle`), muxes `mix.wav` (AAC 256k), generates the subtitle-free `EpisodeThumb` cover PNG, and runs `short_qa.py` automatically!
 
 ---
 
@@ -66,10 +65,8 @@ Want **full 2K (`1440×2560`) or 1080p in ~2–4 minutes** without waiting on Ge
 anime-whatif-3d-voidmetric/
 ├── SKILL.md                           # Master AI agent skill instructions & workflow gates
 ├── CHANNEL_BIBLE.md                   # Episode registry & locked Voidmetric channel continuity
-├── colab/
-│   └── Voidmetric_GPU_Render.ipynb    # 1-click Google Colab Pro L4/T4 GPU renderer
 ├── scripts/
-│   ├── whatif_cli.py                  # Full CLI (init, align-voice, check-framing, sync-subtitles, export-srt, check-beats, render-cloud, package-colab, qa-audit)
+│   ├── whatif_cli.py                  # Full CLI (init, align-voice, check-framing, sync-subtitles, export-srt, check-beats, package-pc, render-cloud, qa-audit)
 │   ├── export_rigs_glb.mjs            # Cross-platform .glb 3D rig exporter
 │   ├── short_qa.py                    # Full video/audio QA & contact sheet generator
 │   └── sbs_sheet.py                   # Side-by-side comparison sheet builder
@@ -77,7 +74,7 @@ anime-whatif-3d-voidmetric/
 │   ├── starter-remotion/              # Self-contained Remotion + Three.js bootstrap + bundled Montserrat-Black.ttf
 │   ├── engine/                        # Shared post-processing & cel passes (ink, lensblur, grade, shade, cardshade)
 │   ├── rigs3d/                        # rig3d_core.ts, LOCKED rig3d_mc.ts, rig3d_guest_template.ts, anim3d_core.ts, props3d_core.ts
-│   ├── vfx/                           # vfx3d_core.ts (9 universal color-parameterized 3D GLSL VFX engines)
+│   ├── vfx/                           # vfx3d_core.ts (custom GLSL VFX toolkit + 9 optional universal VFX engines)
 │   ├── composition/                   # ShortTemplate.tsx, CastSheet3D.tsx, LookCheck3D.tsx, Subtitles.tsx, sakuga_fx.tsx, cam3d_core.ts, env3d_core.ts, cast.ts, world.ts, story.ts, lights.ts
 │   ├── audio/                         # mix_template.py, audio_cues_template.json, dsp.py (48 kHz / 24-bit BS.1770-4)
 │   └── docs/                          # LORE_FACT_SHEET, SCRIPT, and PLAN Markdown templates
@@ -125,12 +122,12 @@ python3 scripts/whatif_cli.py check-framing \
   --shots-config shots_framing.json \
   --output /tmp/framing_report.json
 
-# 5a. Package for 1-click Google Colab Pro GPU render
-python3 scripts/whatif_cli.py package-colab \
+# 5a. Package lightweight .zip bundle for Voidmetric PC Render Studio (PRIMARY!)
+python3 scripts/whatif_cli.py package-pc \
   --remotion-root ./workspace-remotion \
   --slug gojo-limitless \
-  --out-zip ./episode_gojo_colab.zip \
-  --output /tmp/pkg_colab.json
+  --out-zip ./episode_gojo_pc_bundle.zip \
+  --output /tmp/pkg_pc.json
 
 # 5b. OR OOM-proof resumable 1080p CPU cloud render + audio mux right in Gemini Tasks
 python3 scripts/whatif_cli.py render-cloud \

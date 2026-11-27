@@ -1,16 +1,17 @@
 ---
 name: anime-whatif-3d-voidmetric
 description: >-
-  End-to-end production pipeline for ~60 s vertical 1080p (cloud-1080p for
-  Gemini Tasks CPU sandboxes), Colab Pro L4/T4 GPU, or 2K (local-2k GPU) 30 fps
-  3D Anime/Manga "What If You Woke Up With [Character]'s Power?" shorts rendered
+  End-to-end production pipeline for ~60 s vertical 2K (local-2k via Voidmetric
+  PC Render Studio) or 1080p (cloud-1080p fallback in Gemini Tasks) 30 fps 3D
+  Anime/Manga "What If You Woke Up With [Character]'s Power?" shorts rendered
   in Three.js + Remotion. Enforces a mandatory full-canon lore & power
   fact-checker (original source manga, manhwa, light novels, official databooks,
   author Q&As, and canon anime — excluding non-canon filler/fan myths, with
   unadapted spoilers flagged), reuses the locked Voidmetric Channel MC 3D rig,
-  builds cel-shaded 3D anime character rigs with .glb export, bone-locked 3D
-  GLSL VFX, clean floating karaoke subtitles, zero-clipping 9:16 camera frustum
-  verification, OOM-proof chunked cloud rendering, and full short_qa.py audits.
+  builds cel-shaded 3D anime character rigs with .glb export, custom-first
+  painted 3D environments and bespoke 3D GLSL VFX, clean floating karaoke
+  subtitles, zero-clipping 9:16 camera frustum verification, PC `.zip` bundle
+  export (`package-pc`) for local GPU rendering, and full short_qa.py audits.
 ---
 
 # Anime What-If 3D Short — Voidmetric Studio Pipeline
@@ -19,10 +20,10 @@ description: >-
 
 Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** in the proven **Voidmetric Gold-Standard Style** — established by *"What If You Woke Up With Beerus's Destruction Power?"* (`references/beerus-gold-standard/`).
 
-Supports **three verified execution profiles**:
-- **`cloud-1080p` (100% Gemini Tasks / Linux CPU-only Sandbox — `1080×1920` @ `30 fps`):** Bootstraps a self-contained Remotion + Three.js workspace (`templates/starter-remotion/`), uses `--gl=swangle --concurrency=1`, **`EFFECT_MSAA = 2`** (minimum WebGL2-safe MSAA for `LensBlur`), `/tmp/remotion-tmp`, and resumable 300-frame chunked rendering (`whatif_cli.py render-cloud`) so 2 vCPUs + 6.9 GiB RAM / 0 swap NEVER crashes or renders black.
-- **`colab-gpu` (Gemini Tasks Stages 1–6 + Google Colab Pro `L4` / `T4` GPU Render — `1080p` or full `2K 1440×2560` in ~2–4 min):** Export the verified Remotion workspace as a `.zip` (or push to GitHub) and open `colab/Voidmetric_GPU_Render.ipynb` on a Colab **L4** or **T4** GPU (`--gl=angle-egl --concurrency=4`, `EFFECT_MSAA = 4`, auto-saves to Google Drive). Avoid A100/TPUs for WebGL rendering.
-- **`local-2k` (Local GPU PC — `1440×2560` @ `30 fps`):** Native 2K composition (`EpisodeShort2K`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
+Supports **two verified execution workflows**:
+- **`gemini-to-pc` (PRIMARY WORKFLOW — Build in Gemini Tasks, Render Native 2K on Local PC GPU):** Build Stages 1–6 inside Gemini Tasks (`cloud-1080p` profile with `EFFECT_MSAA = 2` & `--gl=swangle --concurrency=1` for fast Look-Check stills), then export a lightweight `.zip` bundle via `whatif_cli.py package-pc` and drag-and-drop it into **Voidmetric PC Render Studio** (`http://127.0.0.1:7860`) on your local Windows PC to render native **2K `1440×2560` @ `30 fps`** (`EFFECT_MSAA = 4`, `--gl=angle --concurrency=4`), mux `mix.wav`, render `EpisodeThumb`, and run `short_qa.py` locally!
+- **`cloud-1080p` (Optional Self-Render Fallback — 100% Inside Gemini Tasks CPU Sandbox, `1080×1920` @ `30 fps`):** Only if the user explicitly asks to render in the cloud instead of on their PC — uses `--gl=swangle --concurrency=1`, **`EFFECT_MSAA = 2`**, `/tmp/remotion-tmp`, and resumable 300-frame chunked rendering (`whatif_cli.py render-cloud`).
+- **`local-2k` (Direct Local GPU PC CLI — `1440×2560` @ `30 fps`):** Native 2K composition (`EpisodeShort2K`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
 
 > [!IMPORTANT]
 > **Gold-Standard Reference Rule:** Only `references/beerus-gold-standard/` (`beerus_3d_ref_compressed.mp4`, `sheet_3d_v4.jpg`, `rig3d_*.jpg`) and `references/mromidev-look-rules/` define the target quality bar. Do **NOT** copy styles, scripts, or visuals from legacy 2D experiments.
@@ -71,7 +72,7 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 2. **`align-voice`** — Converts uploaded voiceover (`.mp3`/`.wav`/`.m4a`) cleanly to 48 kHz 24-bit stereo `voice.wav` and extracts exact Whisper word-level timestamps (`words.json`) via `faster-whisper` or `openai-whisper`.
 3. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`, `halfHeight = D * tan(fov/2)`). Supports `"shot_type": "full_body" | "medium" | "closeup" | "insert"` (plus `allow_bottom_crop: true`) so dramatic close-ups and waist-up shots pass cleanly without forcing 5 m full-body cameras while still strictly protecting head/top and left/right edges!
 4. **`sync-subtitles`** — Converts measured word timestamps JSON (`words.json`) into clean steady karaoke `subtitles_data.ts` matching `Subtitles.tsx`, with automatic **orphan-word avoidance** (never ends a caption chunk on a dangling `"A"`, `"THE"`, `"OF"`, `"WITH"`, `"WITHOUT"`, `"AND"`!).
-5. **`package-colab`** — Pure-Python `zipfile` packager (no external `zip` binary needed!) that cleanly bundles `workspace-remotion` for Google Colab Pro while excluding `node_modules/`, `.git/`, and temp caches.
+5. **`package-pc`** — Pure-Python `zipfile` packager (no external `zip` binary needed!) that cleanly bundles `workspace-remotion` (including `mix.wav`, `shots.json`, `short_qa.py`, and all source/assets while excluding `node_modules/`, `.git/`, and temp caches) ready to drag-and-drop into **Voidmetric PC Render Studio** on your local PC!
 6. **`render-cloud`** — OOM-proof, **resumable chunked 1080p CPU renderer** for Gemini Tasks (`--gl swangle --concurrency 1 --chunk-frames 300`, cleans `/tmp/remotion-tmp` between every chunk, concatenates losslessly via FFmpeg `-c copy`, and muxes `--audio` cleanly).
    ```bash
    python3 scripts/whatif_cli.py render-cloud \
@@ -190,34 +191,38 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - Run `whatif_cli.py check-framing` (`PASS`, tagging close-up/medium/insert shots with `"shot_type": "closeup" | "medium" | "insert"`) AND `whatif_cli.py check-beats` (confirming every impact lands `0–4 frames` before its punch word!).
    - Render `EpisodeLookCheck3D` (`16` frames at `540×960`, `--gl=swangle --concurrency=1` in cloud / `--gl=angle --concurrency=4` on GPU), tile into `sheet_3d.jpg`, and **visually inspect every tile**. Fix ANY clipped head/limb, blocked prop, flat untextured room, or genre-mismatched VFX before full render!
 
-### Stage 7 — Render Choice Gate (Colab GPU vs. Self-Render 1080p), `qa-audit` & Delivery
+### Stage 7 — Package `.zip` for Local PC Render Studio (Primary) & Final Delivery
 Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
 
-1. **MANDATORY RENDER CHOICE QUESTION (On Cloud / CPU Sandboxes like Gemini Tasks):**
-   Before starting the full render, **always ask the user:**
-   > *"All 16 Look-Check frames passed with zero clipping! Would you like me to export the lightweight **`.zip` bundle** (`package-colab`) so you can render it fast on your **Local PC Render Studio** or **Google Colab Pro (`L4`/`T4` GPU)**, or should I render the full **1080p 30 fps** video right here?"*
-   - **If user wants the `.zip` bundle (Local PC GPU Render Studio or Google Colab Pro):**
-     1. Ensure `projects/<slug>/out/shots.json` exists with exact shot start/end frame numbers, then run `python3 scripts/whatif_cli.py package-colab --remotion-root ./workspace-remotion --slug <slug> --out-zip ./episode_<slug>_render_bundle.zip --output /tmp/pkg_colab.json` (pure-Python zip, excludes `node_modules/` & caches, verifies `package.json` + `mix.wav` + `shots.json`).
-     2. Deliver the `.zip` (works directly in **Voidmetric PC Render Studio** OR in the 1-click Colab Pro link: `https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb` on **`L4`/`T4` GPU**).
-   - **If user says NO (no Colab — self-render right here in `1080p 30 fps`):**
-     1. Immediately render the full **`1080×1920` @ `30 fps`** video in safe OOM-proof 300-frame chunks:
-        ```bash
-        python3 scripts/whatif_cli.py render-cloud \
-          --remotion-root ./workspace-remotion \
-          --composition EpisodeShort1080 \
-          --total-frames <N> \
-          --chunk-frames 300 \
-          --audio ./workspace-remotion/projects/<slug>/audio/mix.wav \
-          --out-video ./workspace-remotion/projects/<slug>/out/final_1080p.mp4 \
-          --gl swangle --concurrency 1 --crf 17 \
-          --output /tmp/render_report.json
-        ```
-     2. Run `python3 scripts/whatif_cli.py qa-audit --video <final_1080p.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile cloud-1080p --output /tmp/qa_report.json`.
-     3. Visually inspect key contact sheets from `<qa_dir>` confirming 0 clipping, clean subtitles, and crisp renders before delivering the final 1080p MP4.
-2. **On Local GPU PC (`local-2k`, `1440×2560` @ `30 fps`):**
+1. **DEFAULT CLOUD DELIVERY (Gemini Tasks → Local PC Render Studio — Native 2K GPU):**
+   1. Ensure `projects/<slug>/out/shots.json` exists with exact shot boundaries (`[{"id": 1, "name": "...", "a": 0, "b": ...}, ...]`) AND mastered `projects/<slug>/audio/mix.wav` (`-14.5 LUFS`) exists.
+   2. Package the lightweight render bundle immediately with:
+      ```bash
+      python3 scripts/whatif_cli.py package-pc \
+        --remotion-root ./workspace-remotion \
+        --slug <slug> \
+        --out-zip ./episode_<slug>_pc_bundle.zip \
+        --output /tmp/pkg_pc.json
+      ```
+      Verify `contains_mastered_mix_wav: true` and `contains_shots_json: true` in `/tmp/pkg_pc.json`.
+   3. Deliver `./episode_<slug>_pc_bundle.zip` directly to the user so they can upload it into **Voidmetric PC Render Studio** (`http://127.0.0.1:7860`) on their PC — which automatically links shared `node_modules`, upgrades `EFFECT_MSAA` to `4`, renders native **2K (`1440×2560`, 30 fps, `--gl=angle`)**, muxes `mix.wav`, renders subtitle-free `EpisodeThumb`, and runs `short_qa.py` locally!
+2. **Optional Cloud Self-Render Fallback (ONLY if the user explicitly asks to render in Gemini Tasks instead of on their PC):**
+   1. Render the full **`1080×1920` @ `30 fps`** video in safe OOM-proof 300-frame chunks:
+      ```bash
+      python3 scripts/whatif_cli.py render-cloud \
+        --remotion-root ./workspace-remotion \
+        --composition EpisodeShort1080 \
+        --total-frames <N> \
+        --chunk-frames 300 \
+        --audio ./workspace-remotion/projects/<slug>/audio/mix.wav \
+        --out-video ./workspace-remotion/projects/<slug>/out/final_1080p.mp4 \
+        --gl swangle --concurrency 1 --crf 17 \
+        --output /tmp/render_report.json
+      ```
+   2. Run `python3 scripts/whatif_cli.py qa-audit --video <final_1080p.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile cloud-1080p --output /tmp/qa_report.json`, visually inspect key contact sheets, and deliver the final 1080p MP4.
+3. **Direct Local GPU PC CLI (`local-2k`, `1440×2560` @ `30 fps`):**
    1. Set `REMOTION_TMP=F:/remotion-tmp`, render native `EpisodeShort2K` (`--crf=16 --gl=angle --concurrency=4`), mux with `-map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 256k -movflags +faststart -shortest`, and clean temp caches.
-   2. Run `uv run scripts/whatif_cli.py qa-audit --video <final_2k.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile local-2k --output <qa_report.json>`.
-   3. Visually inspect key contact sheets from `<qa_dir>` and deliver the final 2K MP4.
+   2. Run `uv run scripts/whatif_cli.py qa-audit --video <final_2k.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile local-2k --output <qa_report.json>`, visually inspect key contact sheets, and deliver the final 2K MP4.
 
 ---
 

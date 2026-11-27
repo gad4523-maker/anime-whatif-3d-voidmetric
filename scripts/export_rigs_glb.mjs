@@ -1,4 +1,4 @@
-// Cross-Platform Portable .glb Exporter for Voidmetric 3D Anime Rigs (Windows + Debian 12 Linux + Google Colab!)
+// Cross-Platform Portable .glb Exporter for Voidmetric 3D Anime Rigs (Windows + Debian 12 Linux!)
 // Usage:
 //   node scripts/export_rigs_glb.mjs \
 //     --remotion-root ./workspace-remotion \

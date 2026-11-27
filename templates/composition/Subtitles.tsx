@@ -1,5 +1,5 @@
 // Clean Rock-Steady Karaoke Subtitles Overlay (Voidmetric Locked Style)
-// - Loads bundled OFL `public/fonts/Montserrat-Black.ttf` so typography looks 100% identical on Windows, Debian 12 Linux, AND Google Colab!
+// - Loads bundled OFL `public/fonts/Montserrat-Black.ttf` so typography looks 100% identical on Windows AND Debian 12 Linux!
 // - NO black background box behind text
 // - NO pop-up / bounce / scale animations (100% steady typography)
 // - Crisp dark anime outline + karaoke active-word color highlight (60px baseline scaling cleanly to 1080p & 2K)

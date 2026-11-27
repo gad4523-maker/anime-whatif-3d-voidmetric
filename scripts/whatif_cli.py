@@ -93,7 +93,7 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             root_dst.write_text(root_txt.replace("{{EPISODE_SLUG}}", slug), encoding="utf-8")
             copied_files.append(str(root_dst))
 
-    # Always ensure bundled OFL Montserrat-Black font exists in public/fonts for identical Windows/Linux/Colab subtitles!
+    # Always ensure bundled OFL Montserrat-Black font exists in public/fonts for identical Windows/Linux subtitles!
     copy_if_missing(
         TEMPLATES_DIR / "starter-remotion" / "public" / "fonts" / "Montserrat-Black.ttf",
         remotion_root / "public" / "fonts" / "Montserrat-Black.ttf",
@@ -794,9 +794,9 @@ def cmd_align_voice(args: argparse.Namespace) -> None:
 
 
 # ---------------------------------------------------------------------------
-# 8. package-colab (Pure-Python Zip Exporter — Zero External `zip` Binary Needed!)
+# 8. package-pc (Pure-Python Zip Exporter for Voidmetric PC Render Studio — Zero External `zip` Binary!)
 # ---------------------------------------------------------------------------
-def cmd_package_colab(args: argparse.Namespace) -> None:
+def cmd_package_pc(args: argparse.Namespace) -> None:
     remotion_root = Path(args.remotion_root).resolve()
     slug = args.slug.strip()
     out_zip = Path(args.out_zip).resolve()
@@ -807,7 +807,7 @@ def cmd_package_colab(args: argparse.Namespace) -> None:
     if not proj_dir.exists():
         fail(f"Episode project directory not found: {proj_dir}")
 
-    skip_dirs = {"node_modules", ".git", "remotion-tmp", "__pycache__", ".venv", "stills_3d", "qa_3d", "qa", "qa_colab"}
+    skip_dirs = {"node_modules", ".git", "remotion-tmp", "__pycache__", ".venv", "stills_3d", "qa_3d", "qa"}
     skip_suffixes = {".pyc", ".pyo", ".tmp"}
 
     out_zip.parent.mkdir(parents=True, exist_ok=True)
@@ -841,7 +841,7 @@ def cmd_package_colab(args: argparse.Namespace) -> None:
                 if re.match(r"shots.*\.json$", fn):
                     found_shots = True
 
-        # Always bundle short_qa.py into the zip so Google Colab Cell 5 can run full QA & display contact sheets!
+        # Always bundle short_qa.py into the zip so Voidmetric PC Render Studio can run full QA & contact sheets!
         qa_src = PACK_ROOT / "scripts" / "short_qa.py"
         if qa_src.exists():
             qa_arc = (Path(remotion_root.name) / "scripts" / "short_qa.py").as_posix()
@@ -858,10 +858,10 @@ def cmd_package_colab(args: argparse.Namespace) -> None:
         "size_mb": size_mb,
         "contains_mastered_mix_wav": found_mix,
         "contains_shots_json": found_shots,
-        "colab_notebook_url": "https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb",
+        "renderer_app": "Voidmetric PC Render Studio (http://127.0.0.1:7860)",
     }
     write_json(Path(args.output).resolve(), report)
-    print(f"Success! Packaged {file_count} files ({size_mb} MB, mix_wav={found_mix}) -> {out_zip}")
+    print(f"Success! Packaged {file_count} files ({size_mb} MB, mix_wav={found_mix}, shots_json={found_shots}) -> {out_zip}")
 
 
 # ---------------------------------------------------------------------------
@@ -1032,7 +1032,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rc.add_argument("--out-video", required=True, help="Destination final MP4 path")
     p_rc.add_argument("--tmp-dir", default=default_tmp_dir(), help="Temp directory cleaned between chunks")
     p_rc.add_argument("--crf", type=int, default=17, help="H.264 CRF quality (default 17)")
-    p_rc.add_argument("--gl", default="swangle", choices=["swangle", "angle", "angle-egl", "egl", "swiftshader"], help="Chromium WebGL renderer (swangle for CPU cloud, angle-egl for Colab L4/T4 GPU)")
+    p_rc.add_argument("--gl", default="swangle", choices=["swangle", "angle", "angle-egl", "egl", "swiftshader"], help="Chromium WebGL renderer (swangle for CPU cloud, angle for Windows/macOS GPU)")
     p_rc.add_argument("--concurrency", type=int, default=1, help="Browser concurrency (MUST be 1 on 6.9 GiB / 0 swap cloud boxes)")
     p_rc.add_argument("--keep-chunks", action="store_true", help="Keep intermediate chunk MP4s after concat")
     p_rc.add_argument("--force", action="store_true", help="Re-render existing cached chunks")
@@ -1067,12 +1067,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_al.add_argument("--output", default="", help="Optional compact alignment summary JSON path")
     p_al.set_defaults(func=cmd_align_voice)
 
-    p_pkg = sub.add_parser("package-colab", help="Create a clean Colab-ready .zip bundle (excludes node_modules/temp caches)")
+    p_pkg = sub.add_parser("package-pc", help="Create a clean .zip bundle for Voidmetric PC Render Studio (excludes node_modules/temp caches)")
     p_pkg.add_argument("--remotion-root", required=True, help="Path to Remotion workspace root")
     p_pkg.add_argument("--slug", required=True, help="Episode slug to bundle")
     p_pkg.add_argument("--out-zip", required=True, help="Destination .zip path")
     p_pkg.add_argument("--output", required=True, help="Path to write packaging manifest JSON")
-    p_pkg.set_defaults(func=cmd_package_colab)
+    p_pkg.set_defaults(func=cmd_package_pc)
 
     p_srt = sub.add_parser("export-srt", help="Export clean platform-ready .srt captions from words.json")
     p_srt.add_argument("--words-json", required=True, help="Word timestamp JSON ({words: [{word,start,end}]})")
