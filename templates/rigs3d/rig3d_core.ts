@@ -1326,6 +1326,8 @@ export type AnimeFaceController = {
   attachMaterial: (mat: THREE.ShaderMaterial) => void;
   /**
    * Switch expression live mid-shot with deterministic natural anime eye-blinking (~every 3.4 s) & optional lip-flap!
+   * IMPORTANT: Keep `talk = false` (default — just call `setExpr(expr, t)`) during off-screen narrator voiceover!
+   * ONLY pass `talk = true` when THIS specific character is actually speaking a quoted line or shout in the audio.
    * Lazy-caches each `(expr, blink, mouthOpen, gaze)` texture so startup & per-frame cost stay near zero!
    */
   setExpr: (expr: AnimeExpr | string, t?: number, talk?: boolean, autoBlink?: boolean) => void;

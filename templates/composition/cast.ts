@@ -86,6 +86,7 @@ export class EpisodeCast {
       this.place(this.mc, Z_HOME, 0, 0, 0.14, 1.0, true);
     } else {
       applyAnimeMotion(this.guest, "power_charge", p, t, 0.99);
+      // Keep talk=false (omit 3rd arg!) during off-screen narrator voiceover — only pass true if THIS character is speaking!
       this.guest.setExpr?.(p > 0.55 ? "shout" : "smirk", t);
       this.guest.setGaze?.(0, 0.1);
       this.place(this.guest, Z_VOID, 0.0, 0, -0.1 + p * 0.2, 1.02, true);
