@@ -138,10 +138,10 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
     copy_if_missing(TEMPLATES_DIR / "audio" / "dsp.py", proj_dir / "audio" / "dsp.py")
     copy_if_missing(TEMPLATES_DIR / "audio" / "audio_cues_template.json", proj_dir / "audio" / "audio_cues.json")
 
-    # Ensure shared bridge post-processing + cardshade exists
+    # Ensure shared bridge post-processing + cardshade + WhipBlur exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
     bridge_dir.mkdir(parents=True, exist_ok=True)
-    for eng_file in ["ink.ts", "lensblur.ts", "grade.ts", "shade.ts", "cardshade.ts"]:
+    for eng_file in ["ink.ts", "lensblur.ts", "whipblur.ts", "grade.ts", "shade.ts", "cardshade.ts"]:
         copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
 
     # Instantiate doc templates with episode title & slug
@@ -1004,6 +1004,264 @@ def cmd_check_beats(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ---------------------------------------------------------------------------
+# 11. check-camera (Anti-Tripod Cinema Camera Velocity & Burst Auditor!)
+# ---------------------------------------------------------------------------
+def _eval_story_cam_samples(story_ts: Path, remotion_root: Path) -> dict[str, Any]:
+    """Bundle story.ts in memory with esbuild (from remotion_root/node_modules) and dump per-frame CamState."""
+    node_bin = shutil.which("node")
+    if not node_bin:
+        fail("Node.js not found on PATH (required for `check-camera --story-ts`).")
+
+    js_probe = r"""
+const path = require("path");
+const { createRequire } = require("module");
+const remotionRoot = process.argv[1];
+const storyTs = process.argv[2];
+const req = createRequire(path.join(remotionRoot, "package.json"));
+let esbuild;
+try { esbuild = req("esbuild"); } catch (e) {
+  const glob = require("fs").readdirSync(path.join(remotionRoot, "node_modules"));
+  throw new Error("Could not resolve esbuild from " + remotionRoot + ": " + e.message);
+}
+const built = esbuild.buildSync({
+  entryPoints: [storyTs],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  write: false,
+  logLevel: "silent",
+});
+const code = built.outputFiles[0].text;
+const mod = { exports: {} };
+const fn = new Function("exports", "require", "module", "__filename", "__dirname", code);
+fn(mod.exports, req, mod, storyTs, path.dirname(storyTs));
+const exp = mod.exports;
+const fps = Number(exp.FPS || 30);
+const shots = Array.isArray(exp.SHOTS) ? exp.SHOTS : [];
+const total = Number(exp.TOTAL || (shots.length ? shots[shots.length - 1].b : 0));
+if (!total || typeof exp.camAt !== "function") {
+  throw new Error("story.ts must export TOTAL, SHOTS, and camAt(id, f)");
+}
+const samples = [];
+for (let f = 0; f < total; f++) {
+  const s = typeof exp.shotAt === "function"
+    ? exp.shotAt(f)
+    : (shots.find((q) => f >= q.a && f < q.b) || shots[shots.length - 1]);
+  const sid = s ? s.id : 1;
+  const c = exp.camAt(sid, f);
+  samples.push({ f, sid, pos: c.pos, look: c.look, fov: c.fov ?? 40, roll: c.roll ?? 0 });
+}
+process.stdout.write(JSON.stringify({ fps, total, shots: shots.map((s) => ({ id: s.id, name: s.name || String(s.id), a: s.a, b: s.b })), samples }));
+"""
+    proc = subprocess.run([node_bin, "-e", js_probe, str(remotion_root), str(story_ts)], capture_output=True, text=True)
+    if proc.returncode != 0:
+        fail(f"Failed evaluating story.ts cameras:\n{proc.stderr.strip() or proc.stdout.strip()}")
+    return json.loads(proc.stdout)
+
+
+def _cam_proj_px_speed(c0: dict[str, Any], c1: dict[str, Any], h_px: float = 1280.0, w_px: float = 720.0) -> float:
+    """Measure combined translation + optical-zoom + roll screen-space pixel speed at 720x1280 (mromidev motion.md method!)."""
+    p0, l0, fov0, r0 = c0["pos"], c0["look"], float(c0["fov"]), float(c0["roll"])
+    p1, l1, fov1, r1 = c1["pos"], c1["look"], float(c1["fov"]), float(c1["roll"])
+    v0 = _vec_sub(l0, p0)
+    v1 = _vec_sub(l1, p1)
+    d0 = math.sqrt(_vec_dot(v0, v0))
+    d1 = math.sqrt(_vec_dot(v1, v1))
+    if d0 < 1e-4 or d1 < 1e-4:
+        return 0.0
+    fwd0 = _vec_norm(v0)
+    right0 = _vec_norm(_vec_cross(fwd0, [0.0, 1.0, 0.0]))
+    up0 = _vec_norm(_vec_cross(right0, fwd0))
+    fwd1 = _vec_norm(v1)
+
+    tan_y0 = math.tan(math.radians(fov0 * 0.5))
+    tan_y1 = math.tan(math.radians(fov1 * 0.5))
+    # Angular + lateral translation on subject plane (converted to 720p pixels)
+    rel_pos = _vec_sub(p1, p0)
+    dfwd = _vec_sub(fwd1, fwd0)
+    dx_rad = _vec_dot(dfwd, right0) - _vec_dot(rel_pos, right0) / d0
+    dy_rad = _vec_dot(dfwd, up0) - _vec_dot(rel_pos, up0) / d0
+    px_x = (dx_rad / max(1e-5, tan_y0)) * (h_px * 0.5)
+    px_y = (dy_rad / max(1e-5, tan_y0)) * (h_px * 0.5)
+
+    # Effective zoom rate (combining dolly distance change + FOV optical zoom) scaled by frame-corner radius (734 px @ 720x1280!)
+    scale0 = d0 * tan_y0
+    scale1 = d1 * tan_y1
+    zoom_frac = abs(scale1 - scale0) / max(1e-5, scale0)
+    px_zoom = zoom_frac * 734.0
+
+    # Roll speed at half-height corner radius
+    px_roll = abs(r1 - r0) * 420.0
+    return math.hypot(px_x, px_y) + px_zoom + px_roll
+
+
+def _video_phase_speeds(video_path: Path) -> tuple[list[float], float]:
+    """Sub-pixel FFT phase-correlation background camera speed (720p px/f @ 30fps) on a rendered MP4."""
+    try:
+        import numpy as np  # type: ignore
+    except ImportError:
+        fail("numpy is required for `check-camera --video`. Run with `uv run --with numpy` or `pip install numpy`.")
+
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(video_path), "-vf", "fps=15,scale=180:320", "-f", "rawvideo", "-pix_fmt", "gray", "-"],
+        capture_output=True,
+        check=True,
+    )
+    raw = np.frombuffer(proc.stdout, dtype=np.uint8)
+    n = len(raw) // (180 * 320)
+    frames = raw[: n * 180 * 320].reshape((n, 320, 180)).astype(np.float32)
+
+    def shift(a, b):
+        fa = np.fft.rfft2(a - a.mean())
+        fb = np.fft.rfft2(b - b.mean())
+        r = fa * np.conj(fb)
+        r /= np.abs(r) + 1e-8
+        cc = np.fft.irfft2(r, s=a.shape)
+        h, w = a.shape
+        idx = int(np.argmax(cc))
+        py, px = divmod(idx, w)
+        dy = py - h if py > h // 2 else py
+        dx = px - w if px > w // 2 else px
+        def quad(vm, v0, vp):
+            dn = vm - 2.0 * v0 + vp
+            return 0.5 * (vm - vp) / dn if abs(dn) > 1e-9 else 0.0
+        sy = quad(cc[(py - 1) % h, px], cc[py, px], cc[(py + 1) % h, px])
+        sx = quad(cc[py, (px - 1) % w], cc[py, px], cc[py, (px + 1) % w])
+        return float(dx + sx), float(dy + sy)
+
+    speeds: list[float] = []
+    for i in range(n - 1):
+        a = frames[i, 16:144, 10:170]
+        b = frames[i + 1, 16:144, 10:170]
+        if float(np.abs(b - a).mean()) > 32.0:
+            speeds.append(-1.0)
+            continue
+        dx, dy = shift(a, b)
+        speeds.append(min(90.0, math.hypot(dx, dy) * 2.0))
+    return speeds, n / 15.0
+
+
+def cmd_check_camera(args: argparse.Namespace) -> None:
+    if not args.story_ts and not args.video:
+        fail("Pass either --story-ts (+ --remotion-root) OR --video to `check-camera`.")
+
+    min_median = float(args.min_median)
+    max_hold = float(args.max_hold_pct)
+    min_bursts = float(args.min_bursts_per_10s)
+
+    shot_reports: list[dict[str, Any]] = []
+    tripod_shots: list[str] = []
+
+    if args.story_ts:
+        story_path = Path(args.story_ts).resolve()
+        remotion_root = Path(args.remotion_root).resolve() if args.remotion_root else story_path.parents[3]
+        if not story_path.exists():
+            fail(f"story.ts not found: {story_path}")
+        data = _eval_story_cam_samples(story_path, remotion_root)
+        fps = float(data["fps"])
+        samples = data["samples"]
+        dur_s = len(samples) / max(1.0, fps)
+        step_fps = fps
+
+        speeds: list[float] = []
+        per_shot: dict[int, list[float]] = {}
+        for i in range(len(samples) - 1):
+            c0, c1 = samples[i], samples[i + 1]
+            if c0["sid"] != c1["sid"]:
+                speeds.append(-1.0)  # shot boundary cut
+                continue
+            sp = _cam_proj_px_speed(c0, c1)
+            if sp > 120.0:
+                speeds.append(-1.0)  # intra-shot hard cut (`cut: true`)
+                continue
+            speeds.append(sp)
+            per_shot.setdefault(int(c0["sid"]), []).append(sp)
+
+        for sh in data.get("shots", []):
+            sid = int(sh["id"])
+            s_sp = sorted(per_shot.get(sid, []))
+            s_dur = round((int(sh["b"]) - int(sh["a"])) / fps, 2)
+            s_med = round(s_sp[len(s_sp) // 2], 2) if s_sp else 0.0
+            s_p90 = round(s_sp[int(len(s_sp) * 0.9)], 2) if s_sp else 0.0
+            s_hold = round((sum(1 for v in s_sp if v < 0.5) / max(1, len(s_sp))) * 100.0, 1)
+            is_tripod = s_dur >= 2.5 and s_med < 0.65 and s_p90 < 3.0
+            if is_tripod:
+                tripod_shots.append(f"shot {sid} ({sh['name']}, {s_dur}s, med={s_med} px/f)")
+            shot_reports.append({
+                "id": sid, "name": sh["name"], "dur_s": s_dur,
+                "median_px_f": s_med, "p90_px_f": s_p90, "hold_pct": s_hold,
+                "status": "TRIPOD_FAIL" if is_tripod else "PASS",
+            })
+        mode = "story_ts"
+    else:
+        vid_path = Path(args.video).resolve()
+        if not vid_path.exists():
+            fail(f"Video not found: {vid_path}")
+        speeds, dur_s = _video_phase_speeds(vid_path)
+        step_fps = 15.0
+        mode = "video_fft"
+
+    valid = sorted([s for s in speeds if s >= 0.0])
+    if not valid:
+        fail("No valid camera motion samples measured.")
+
+    med = valid[len(valid) // 2]
+    p75 = valid[int(len(valid) * 0.75)]
+    p90 = valid[int(len(valid) * 0.90)]
+    hold_pct = (sum(1 for s in valid if s < 0.5) / len(valid)) * 100.0
+    move_pct = (sum(1 for s in valid if s >= 2.0) / len(valid)) * 100.0
+
+    # Count distinct deliberate moves (>= 4.5 px/f lasting >= 4 frames @ 30fps)
+    min_run = max(2, int(round(4 * step_fps / 30.0)))
+    bursts = 0
+    cur = 0
+    for s in speeds:
+        if s >= 4.5:
+            cur += 1
+        else:
+            if cur >= min_run:
+                bursts += 1
+            cur = 0
+    if cur >= min_run:
+        bursts += 1
+    bursts_per_10s = bursts / max(0.1, dur_s / 10.0)
+
+    failures: list[str] = []
+    if med < min_median:
+        failures.append(f"Median camera speed {med:.2f} px/f < {min_median:.2f} px/f (feels like a static tripod! Target 1.5-3.6 px/f)")
+    if hold_pct > max_hold:
+        failures.append(f"Static tripod hold frames {hold_pct:.1f}% > {max_hold:.1f}% limit (Target < 30%)")
+    if bursts_per_10s < min_bursts:
+        failures.append(f"Deliberate camera bursts {bursts_per_10s:.2f}/10s < {min_bursts:.2f}/10s (Target 4.5-7.6/10s via multi-keyframe runCamKeys!)")
+    if tripod_shots:
+        failures.append(f"Static tripod shots detected (>=2.5s): {', '.join(tripod_shots)}")
+
+    report = {
+        "mode": mode,
+        "duration_s": round(dur_s, 2),
+        "median_px_f": round(med, 2),
+        "p75_px_f": round(p75, 2),
+        "p90_px_f": round(p90, 2),
+        "hold_pct": round(hold_pct, 1),
+        "move_pct": round(move_pct, 1),
+        "bursts_total": bursts,
+        "bursts_per_10s": round(bursts_per_10s, 2),
+        "overall_status": "PASS" if not failures else "FAIL",
+        "failures": failures,
+        "shots": shot_reports,
+    }
+    write_json(Path(args.output).resolve(), report)
+    print(
+        f"Camera check [{mode}] {report['overall_status']} | med={report['median_px_f']} px/f | p90={report['p90_px_f']} px/f | "
+        f"hold={report['hold_pct']}% | bursts={report['bursts_per_10s']}/10s -> {args.output}"
+    )
+    if failures and not args.warn_only:
+        for fmsg in failures:
+            print(f"  FAIL: {fmsg}", file=sys.stderr)
+        sys.exit(1)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whatif_cli.py", description="Voidmetric Anime What-If 3D Short CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -1101,6 +1359,17 @@ def build_parser() -> argparse.ArgumentParser:
     p_bt.add_argument("--warn-only", action="store_true", help="Exit 0 even if beats are late")
     p_bt.add_argument("--output", required=True, help="Path to write beat-sync report JSON")
     p_bt.set_defaults(func=cmd_check_beats)
+
+    p_cam = sub.add_parser("check-camera", help="Anti-tripod camera velocity & burst gate (pre-render --story-ts OR post-render --video)")
+    p_cam.add_argument("--story-ts", default="", help="Path to src/videos/<slug>/story.ts for instant pre-render math audit")
+    p_cam.add_argument("--remotion-root", default="", help="Path to workspace-remotion root (for resolving esbuild with --story-ts)")
+    p_cam.add_argument("--video", default="", help="Optional rendered MP4 for post-render FFT phase-correlation camera audit")
+    p_cam.add_argument("--min-median", type=float, default=0.85, help="Minimum median 720p camera speed in px/f (default 0.85; target 1.5-3.6)")
+    p_cam.add_argument("--max-hold-pct", type=float, default=45.0, help="Maximum allowed tripod hold % (<0.5 px/f, default 45.0)")
+    p_cam.add_argument("--min-bursts-per-10s", type=float, default=2.5, help="Minimum deliberate camera moves (>=4.5 px/f) per 10s (default 2.5; target 4.5-7.6)")
+    p_cam.add_argument("--warn-only", action="store_true", help="Return exit code 0 even if tripod thresholds fail")
+    p_cam.add_argument("--output", required=True, help="Path to write camera audit JSON report")
+    p_cam.set_defaults(func=cmd_check_camera)
 
     return p
 

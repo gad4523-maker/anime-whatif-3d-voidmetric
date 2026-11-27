@@ -1,15 +1,15 @@
-# `anime-whatif-3d-voidmetric` — Voidmetric `v3.5` Studio 3D Anime "What If" Workflow Pack
+# `anime-whatif-3d-voidmetric` — Voidmetric `v3.6` Studio 3D Anime "What If" Workflow Pack
 
 A complete, end-to-end production workflow pack and AI agent skill for creating **~60-second vertical 30 fps 3D Anime "What If You Woke Up With [Character]'s Power?" Shorts** in Three.js + Remotion — built for the **Gemini Tasks / Codex → Local PC Render Studio (`1440×2560` 2K GPU)** pipeline with **3 Execution Modes** (`INTERACTIVE`, `OVERNIGHT_AUTOPILOT`, and `FAST_REDO`).
 
 ---
 
-## `v3.5` Studio Cinema, Custom-First Engine & Modes Highlights
+## `v3.6` Anti-Tripod Cinema Camera, Custom-First Engine & Modes Highlights
 
-- **Viral Shorts Cinema Toolkit (`cam3d_core.ts`, `lights.ts`, `vfx3d_core.ts`):**
-  - **12 Cinema Camera Primitives:** Adds shallow-DOF **`rackFocusPull`** (driving live `LensBlur` `focusDist`), **`macroInsertCam`** (`0.6–1.2 m` diegetic prop/eye macros), **`povCam`** (first-person POV), and **`craneRevealPull`** (intimate window/detail pull-back to massive scale) alongside `orbitCam`, `dutchPush`, `crashZoom`, `lowAngleHero`, `overShoulder`, `handheldBreath`, and `flowEase` (`0%` held frames!).
-  - **10-Mood 3-Act Lighting Arc (`lights.ts`):** Adds **`golden_sunset`**, **`twilight_indigo`**, **`storm_rain`**, and **`warm_lantern`** alongside `morning`, `day`, `golden`, `cosmic_void`, `night_room`, and `space` so every short transforms color temperature across acts!
-  - **Grounded Atmospheric Depth (`vfx3d_core.ts`):** Adds **`SunbeamShaft3D`** (diagonal volumetric window light shafts) and **`AtmosphericWeather3D`** (`"rain"`, `"snow"`, `"sparks"`, `"dust"`, strictly `NOINK`), plus mandatory Act 3 **3D Mechanism Cutaway** & **Diegetic Storytelling Props** rules!
+- **Anti-Tripod Multi-Keyframe Cinema Camera Engine (`cam3d_core.ts`, `whipblur.ts`, `whatif_cli.py check-camera`):**
+  - Modeled directly on measured Rick's Clips & `mromidev` camera motion (`1.7–3.6 px/f` median speed, `5–7.5` deliberate camera moves every 10 s): **`runCamKeys`** chains 2–4 smooth `18–36 f` symmetric glides per shot, **`pushK` + `dollyPush` / `zoomPush`** drives real exponential push-ins (`0.0022–0.0035 / f` base, `0.006 / f` punch push on key words), **`rolledCam`** adds `±4°–8°` emphasis tilts, **`applyImpactKicks15Hz`** fires 7-frame sign-alternating impact kicks, and **`WhipBlur`** (`templates/engine/whipblur.ts`) automatically applies 12-tap directional GLSL motion blur to fast `8–14 f` whip-pan transitions!
+  - Plus **`rackFocusPull`**, **`macroInsertCam`**, **`povCam`**, **`craneRevealPull`**, rich `cInf: 10–15` foreground-parallax DOF, `6–8 f` `XFADE` dissolves, and the automated **`whatif_cli.py check-camera`** anti-tripod gate (`--story-ts` pre-render OR `--video` post-render) that blocks static tripod builds automatically!
+  - **10-Mood 3-Act Lighting Arc (`lights.ts`):** `morning`, `day`, `golden`, `golden_sunset`, `twilight_indigo`, `storm_rain`, `warm_lantern`, `cosmic_void`, `night_room`, and `space`, paired with **`SunbeamShaft3D`** and **`AtmosphericWeather3D`** (`"rain"`, `"snow"`, `"sparks"`, `"dust"`).
 
 - **3 Execution Modes (`SKILL.md`) — Hands-On OR Sleep Mode!:**
   - **`MODE: INTERACTIVE` (default):** Pauses at Stage 3 (Lore/Script) AND Stage 4 (3D Character Turnaround) for hands-on approval before building worlds & zipping.
@@ -156,10 +156,14 @@ python3 scripts/whatif_cli.py check-beats \
   --words-json ./workspace-remotion/projects/gojo-limitless/voice/words.json \
   --beats-json ./beats.json --output /tmp/beats_report.json
 
-# 4. Validate 9:16 camera framing math before rendering
+# 4. Validate 9:16 framing AND anti-tripod camera velocity before rendering
 python3 scripts/whatif_cli.py check-framing \
   --shots-config shots_framing.json \
   --output /tmp/framing_report.json
+python3 scripts/whatif_cli.py check-camera \
+  --story-ts ./workspace-remotion/src/videos/gojo-limitless/story.ts \
+  --remotion-root ./workspace-remotion \
+  --output /tmp/camera_report.json
 
 # 5a. Package lightweight .zip bundle for Voidmetric PC Render Studio (PRIMARY!)
 python3 scripts/whatif_cli.py package-pc \

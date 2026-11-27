@@ -11,10 +11,12 @@ import { EffectComposer } from "@react-three/postprocessing";
 import { BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode } from "postprocessing";
 import { InkPass } from "../bridge/ink";
 import { LensBlur } from "../bridge/lensblur";
+import { WhipBlur } from "../bridge/whipblur";
 import { GradeEffect } from "../bridge/grade";
 import { EPISODE_LIGHTS } from "./lights";
 import { EpisodeWorld } from "./world";
-import { HIT_STOPS, IMPACT_FRAMES, SPEEDLINES, TOTAL, dofAt, flashAt, layersAt, lightForShot } from "./story";
+import { HIT_STOPS, IMPACT_FRAMES, SPEEDLINES, TOTAL, camAt, dofAt, flashAt, layersAt, lightForShot } from "./story";
+import { computeWhipVelUV } from "./cam3d_core";
 import { SakugaOverlay, applyHitStop, impactFilterAt } from "./sakuga_fx";
 import { SubtitlesOverlay } from "./Subtitles";
 
@@ -56,6 +58,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       }),
       lens: new LensBlur({ maxCoC: 20, nearScale: 1.15 }),
       bloom: makeBloom(),
+      whip: new WhipBlur(),
       tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
       grade: new GradeEffect(EPISODE_LIGHTS.morning.grade, 1.0),
     }),
@@ -68,6 +71,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       if (typeof fx.ink.dispose === "function") fx.ink.dispose();
       else InkPass.prototype.dispose.call(fx.ink);
       if (typeof fx.lens.dispose === "function") fx.lens.dispose();
+      if (typeof fx.whip.dispose === "function") fx.whip.dispose();
     },
     [fx]
   );
@@ -82,6 +86,10 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   fx.lens.focus = focusDist;
   fx.lens.cInf = d.cInf;
 
+  // Automatic 12-tap directional motion blur during fast whip pans (zero cost on normal glides!)
+  const [wx, wy] = computeWhipVelUV(camAt(id, animF), camAt(id, animF + 1));
+  fx.whip.vel.set(wx, wy);
+
   const lName = lightForShot(id, animF);
   fx.grade.set(EPISODE_LIGHTS[lName].grade);
 
@@ -91,6 +99,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       <primitive key="pre" object={fx.lens.pre} />,
       <primitive key="lens" object={fx.lens.main} />,
       <primitive key="bloom" object={fx.bloom} />,
+      <primitive key="whip" object={fx.whip} />,
       <primitive key="tone" object={fx.tone} />,
       <primitive key="grade" object={fx.grade} />,
     ],

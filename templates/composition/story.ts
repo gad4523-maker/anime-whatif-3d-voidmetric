@@ -1,15 +1,28 @@
-// Voidmetric v3.1 Starter Episode Timeline, Multi-Scale Cinematic Camera & Genre-Matched FX!
-// IMPORTANT (v3.1 Shot-Scale Rhythm): Mix Extreme Face Close-Ups (`1.6–2.0 m`, `shot_type: "closeup"`),
-// Prop/Hand Inserts (`1.1–1.5 m`, `shot_type: "insert"`), Medium Waist-Up (`2.6–3.2 m`, `shot_type: "medium"`),
-// and Wide Establishing (`4.5–5.5 m`) — NEVER run >2 full-body shots in a row!
-// Only use `IMPACT_FRAMES` / `SPEEDLINES` when they fit the episode's genre tone!
+// Voidmetric v3.6 Anti-Tripod Multi-Keyframe Cinema Timeline & Pacing Starter!
+// Proven Rick's Clips + mromidev camera grammar:
+//   - NEVER 1 static keyframe for 4-6 s! Chain 2-4 `CamKey` moves per shot via `runCamKeys(CAMS[id], f)`.
+//   - Every hold pushes in exponentially via `dollyPush(..., pushK(f, f0, 0.0026))` (`+25%` real visual growth over 3 s!)
+//     and surges with `punch = 0.006` for `32 f` on punch words!
+//   - Same-room reframes use symmetric `glide` (`dur: 18-32 f`), big reframes use `cut: true`, fast whips (`dur: 8-12 f`)
+//     auto-trigger `WhipBlur`, place jumps use `6-8 f` `XFADE`, emphasis words glide `±4°-8°` roll (`rolledCam`),
+//     and impacts fire 7-frame 15 Hz kicks (`applyImpactKicks15Hz`) — zero fake tripod jitter!
 import { EpisodeLightName } from "./lights";
-import { CamState, V3, applyCameraKicks, glide, handheldBreath, lowAngleHero, orbitCam } from "./cam3d_core";
+import {
+  CamKey,
+  CamState,
+  V3,
+  applyImpactKicks15Hz,
+  dollyPush,
+  glide,
+  pushK,
+  rolledCam,
+  runCamKeys,
+} from "./cam3d_core";
 import { HitStopCue, ImpactFrameCue, SpeedlineCue } from "./sakuga_fx";
 
 export const FPS = 30;
 export const TOTAL = 1800; // Update to exact voiceover frame count (`Math.ceil(dur_s * 30)`)
-export const EPISODE_POWER_COLOR = "#38d8ff"; // Customize to the anime character's canonical power color!
+export const EPISODE_POWER_COLOR = "#38d8ff";
 export const EPISODE_POWER_CORE = "#eefcff";
 export { glide };
 export type { CamState, V3 };
@@ -30,13 +43,13 @@ export type ShotDef = {
 };
 
 export const SHOTS: ShotDef[] = [
-  { id: 1, name: "hook_wake", a: 0, b: 180, zone: Z_HOME, light: "morning", dof: { cInf: 8 } },
-  { id: 2, name: "guest_reveal", a: 180, b: TOTAL, zone: Z_VOID, light: "cosmic_void", dof: { cInf: 6 } },
+  { id: 1, name: "hook_wake", a: 0, b: 180, zone: Z_HOME, light: "morning", dof: { cInf: 12 } },
+  { id: 2, name: "guest_reveal", a: 180, b: TOTAL, zone: Z_VOID, light: "cosmic_void", dof: { cInf: 10 } },
 ];
 
 export const XFADE: Record<number, number> = { 2: 6 };
 export const FLASHES: { f: number; dur: number; tint?: string }[] = [{ f: 186, dur: 4, tint: "#e0f6ff" }];
-export const KICKS: [number, number][] = [[184, 0.16]];
+export const KICKS: [number, number][] = [[184, 1.2]];
 export const IMPACT_FRAMES: ImpactFrameCue[] = [{ f: 184, dur: 2, style: "bw_invert" }];
 export const SPEEDLINES: SpeedlineCue[] = [{ a: 184, b: 245, intensity: 0.65, color: "#ffffff", innerRadius: 0.32 }];
 export const HIT_STOPS: HitStopCue[] = [];
@@ -68,16 +81,30 @@ export const flashAt = (f: number): { alpha: number; color: string } => {
 
 export const lightForShot = (id: number, _f: number): EpisodeLightName => SHOTS[id - 1].light;
 
+// Multi-keyframe `CAMS` timeline: 2-4 deliberate camera moves per 3-6 s shot!
+const S1a = (f: number) => dollyPush([Z_HOME + 0.55, 1.48, 3.6], [Z_HOME, 1.38, 0], pushK(f, 0, 0.0028), { fov: 42 });
+const S1b = (f: number) => dollyPush([Z_HOME - 0.35, 1.54, 2.35], [Z_HOME, 1.46, 0], pushK(f, 52, 0.0024, 0.006, 30), { fov: 39, roll: -0.05 });
+const S1c = (f: number) => dollyPush([Z_HOME + 0.25, 1.56, 1.95], [Z_HOME, 1.50, 0], pushK(f, 118, 0.0026), { fov: 37, roll: 0.05 });
+
+const S2a = (f: number) => dollyPush([Z_VOID - 0.85, 0.95, 4.9], [Z_VOID, 1.28, 0], pushK(f, 180, 0.0028, 0.006, 34), { fov: 42, roll: -0.06 });
+const S2b = (f: number) => dollyPush([Z_VOID + 0.65, 1.48, 2.75], [Z_VOID, 1.44, 0], pushK(f, 255, 0.0025), { fov: 38, roll: 0.05 });
+
+const CAMS: Record<number, CamKey[]> = {
+  1: [
+    { f: 0, s: S1a },
+    { f: 52, dur: 26, s: S1b },
+    { f: 118, dur: 24, s: S1c },
+  ],
+  2: [
+    { f: 180, s: S2a },
+    { f: 255, dur: 28, s: S2b },
+    { f: 340, dur: 22, s: rolledCam(S2b, -0.06) },
+  ],
+};
+
 export const camAt = (id: number, f: number): CamState => {
-  const s = SHOTS[id - 1];
-  const u = clamp01((f - s.a) / Math.max(1, s.b - s.a));
-  const t = f / FPS;
-  const ox = s.zone;
-  const base: CamState =
-    id === 1
-      ? orbitCam([ox, 1.26, 0], 4.45 - u * 0.35, -8, 10, 0.16, 0.12, u, { fov: 41 })
-      : lowAngleHero([ox, 1.24, 0], 4.85 - glide(u) * 0.35, u, { swayX: 0.65, fov: 41 });
-  return applyCameraKicks(handheldBreath(base, t, 0.7), f, KICKS);
+  const keys = CAMS[id] ?? CAMS[1];
+  return applyImpactKicks15Hz(runCamKeys(keys, f), f, KICKS);
 };
 
 export const dofAt = (id: number, _f: number): { cInf: number; focusDist?: number } => SHOTS[id - 1].dof;
