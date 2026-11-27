@@ -1,17 +1,19 @@
 ---
 name: anime-whatif-3d-voidmetric
 description: >-
-  100% zero-hardcoding pure-primitives production pipeline for ~60 s vertical 2K
+  Zero-hardcoding pure-primitives production pipeline for ~60 s vertical 2K
   (local-2k via Voidmetric PC Render Studio) or 1080p (cloud-1080p fallback in
   Gemini Tasks) 30 fps 3D Anime/Manga "What If You Woke Up With [Character]'s
   Power?" shorts rendered in Three.js + Remotion. Zero hardcoded environments,
-  camera angle presets, VFX classes, lighting dropdowns, prop builders, canned
-  animation clips, or music mood dropdowns — every episode is authored bespoke
-  from pure low-level 3D engine primitives. Enforces full-canon lore
-  fact-checking, strict zero unreferenced named characters, locked Channel MC
-  3D rig, cel-shaded 3D anime rigs with .glb export, clean floating karaoke
-  subtitles, anti-tripod camera verification, 9:16 frustum verification, PC
-  `.zip` bundle export (`package-pc`), and full short_qa.py audits.
+  camera angle presets, VFX classes, lighting dropdowns, prop builders, or
+  music mood dropdowns — every world, shot, lighting, prop, and VFX is authored
+  bespoke from pure low-level 3D primitives, while keeping optional reusable
+  facial expressions and 26-bone humanoid character movements alongside custom
+  posing. Enforces full-canon lore fact-checking, strict zero unreferenced
+  named characters, locked Channel MC 3D rig, cel-shaded 3D anime rigs with
+  .glb export, clean floating karaoke subtitles, anti-tripod camera
+  verification, 9:16 frustum verification, PC `.zip` bundle export
+  (`package-pc`), and full short_qa.py audits.
 ---
 
 # Anime What-If 3D Short — Voidmetric `v4.0` Zero-Hardcoding Pure-Primitives Pipeline
@@ -30,13 +32,13 @@ Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** with **Z
 - **`local-2k` (Direct Local GPU PC CLI):** Native `EpisodeShort2K` (`1440×2560`, `30 fps`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
 
 > [!IMPORTANT]
-> **Zero-Hardcoding Pure-Primitives Architecture (`v4.0`):**
-> This pack intentionally ships **NO** hardcoded rooms, **NO** hardcoded camera angle presets, **NO** hardcoded VFX classes, **NO** hardcoded prop builders, **NO** canned motion clips, **NO** closed lighting dropdowns, and **NO** fixed music mood dropdowns. Every creative decision is authored fresh for the episode using pure primitives:
+> **Zero-Hardcoding Pure-Primitives Architecture (`v4.0.1`):**
+> This pack ships **NO** hardcoded rooms/environments, **NO** hardcoded camera angle presets, **NO** hardcoded VFX classes, **NO** hardcoded prop builders, **NO** closed lighting dropdowns, and **NO** fixed music mood dropdowns. Every world, lighting mood, camera angle/path, prop, and VFX is authored bespoke for the episode using pure primitives — while keeping **optional reusable facial expressions** (`rig3d_core.ts`) and **optional reusable 26-bone humanoid movements** (`anim3d_core.ts`) alongside custom posing (`createPose`):
 > - **World & Textures (`env3d_core.ts`):** `hash01`, `makeEnvTex`, `cel`, `celTex`, `makePaintedMat`
 > - **Lighting (`lights.ts`):** Open `makeLightPreset(customSpec)` + `Record<string, EpisodeLightPreset>`
 > - **Camera Math (`cam3d_core.ts`):** `runCamKeys`, `glide`, `flowEase`, `pushK`, `dollyPush`, `zoomPush`, `rolledCam`, `applyImpactKicks15Hz`, `computeWhipVelUV`, `focusOnPoint`, `rackFocusPull`, `clampSafe916Dist`
-> - **3D Sculpting & Faces (`rig3d_core.ts`):** `makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `sculptLimbGeo`, `buildHand3D`, `buildAnimeHead3D`, `createAnimeFaceController`
-> - **Pose Math & Sockets (`anim3d_core.ts`, `props3d_core.ts`):** `createPose`, `applyPoseSnapshot`, `blendPoseSnapshots`, `applySecondarySway`, `attachToHand`, `attachThroughGrip`
+> - **3D Sculpting, Faces & Optional Expressions (`rig3d_core.ts`):** `makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `sculptLimbGeo`, `buildHand3D`, `buildAnimeHead3D`, `createAnimeFaceController` (10 optional live expressions + organic blink + `setGaze` + `customDraw`)
+> - **Custom Pose Math + Optional 18 Character Movements & Sockets (`anim3d_core.ts`, `props3d_core.ts`):** Custom `createPose`, `applyPoseSnapshot`, `blendPoseSnapshots`, `applySecondarySway` + optional reusable clips (`evaluateAnimeMotion`, `applyAnimeMotion`, `blendAnimeMotions`) + `attachToHand`, `attachThroughGrip`
 > - **Custom 3D GLSL VFX (`vfx3d.ts`):** `setNoInkTree`, `NOISE_GLSL`, `getGlowSpriteTex`, `createCustomVFXMat`
 > - **Post-Processing (`templates/engine/`):** `InkPass`, 2-pass `LensBlur`, 6-level HDR `BloomEffect`, 16-tap `WhipBlur`, `ToneMappingEffect(NEUTRAL)`, `GradeEffect`, `GrainEffect`
 
@@ -171,8 +173,8 @@ Every run operates in one of **3 modes** (default: `MODE: INTERACTIVE`):
    - **Anti-Tripod Motion Grammar:** Chain `2–4` custom `CamKey` keyframes per 3–6 s shot via `runCamKeys(CAMS[id], f)` (targeting `4.5–7.5` real camera moves per 10 s, median `1.5–3.6 px/f`). Use exponential push-ins (`dollyPush`/`zoomPush` + `pushK`), symmetric `glide` (`18–36 f`) for same-room reframes, `cut: true` for large reframes, fast `8–13 f` whips (auto-blurred by 16-tap `WhipBlur`), `±4°–8°` rolled emphasis beats (`rolledCam`), 7-frame `applyImpactKicks15Hz` on hits, and **`6–8 f` `XFADE`** crossfades on major act/location jumps!
    - **True Cinema DOF + `focusOnPoint` + Foreground Parallax:** Use `cInf: 0` on wides and rich bokeh **`cInf: 10–15`** on close-ups/mediums/inserts (NEVER weak `cInf: 2–3`!). Whenever `cInf >= 8`, lock sharp focus onto the hero via **`focusDist: focusOnPoint(camAt(id, f), heroPos)`** so tilted cameras NEVER accidentally blur the character! Place foreground framing edges at `0.35–0.5× focusDist` (`10–25%` of one edge) for 3D parallax.
    - **Genre-Matched Sakuga Punctuation:** On supernatural/action/thriller shorts, place `2–4` crisp `2–3 f` `IMPACT_FRAMES` / `HIT_STOPS` / brief `SPEEDLINES` on peak power/reveal hits (`0–2 f` before the punch word).
-4. **Bespoke 26-Bone Character Acting & Custom 3D GLSL VFX (`anim3d_core.ts`, `vfx3d.ts`):**
-   - Author shot-specific poses directly on the character's 26-bone skeleton via `createPose` + `applyPoseSnapshot` + `blendPoseSnapshots` + `applySecondarySway` (held anticipation → crisp strike on punch word; skirt/coat-safe leg arcs; grounded human acting; never leave MC frozen holding an invisible orb!).
+4. **Custom 26-Bone Character Acting (+ Optional Reusable Movements) & Custom 3D GLSL VFX (`anim3d_core.ts`, `vfx3d.ts`):**
+   - Author custom shot-specific poses directly on the character's 26-bone skeleton via `createPose` + `applyPoseSnapshot` + `blendPoseSnapshots` + `applySecondarySway`, **OR** optionally use/blend any of the 18 reusable humanoid movements in `anim3d_core.ts` (`applyAnimeMotion` / `blendAnimeMotions` — `idle_hero`, `walk`, `run`, `run_skirt_safe`, `sprint_lean`, `hover_float` *(only if canonically flying!)*, `power_charge`, `finger_snap`, `palm_blast`, `sword_slash`, `punch_combo`, `recoil_hit`, `kneel_exhausted`, `wheeze_knees`, `inspect_prop`, `write_board`, `talk_gesture`, `sit_desk`)! Use held anticipation → crisp impact timing on punch words, skirt/coat-safe leg arcs, and never leave MC frozen holding an invisible orb!
    - Author bespoke episode-specific 3D VFX or physical FX (steam, rain, sparks, slashes, spatial warps, energy constructs) directly via `createCustomVFXMat` + `NOISE_GLSL` + `getGlowSpriteTex` + `setNoInkTree`. Always call `cast.update` + `root.updateMatrixWorld(true)` BEFORE bone-locking VFX via `bone.localToWorld(...)`.
 5. **Mandatory Automated Gates + 16-Tile Visual Look-Check:**
    - Pass ALL 4 checks BEFORE packaging: `npx tsc --noEmit` (`0` errors), `whatif_cli.py check-framing` (`PASS`), `whatif_cli.py check-camera --story-ts` (`PASS`), and `whatif_cli.py check-beats` (`PASS`).
