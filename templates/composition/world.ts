@@ -62,11 +62,20 @@ export class EpisodeWorld {
       fragmentShader: `
         uniform vec3 c0, c1, c2, c3, c4, sunDir, sunDisc; uniform float e[5]; varying vec3 vDir;
         void main(){
-          float deg = degrees(asin(clamp(vDir.y, -1.0, 1.0)));
+          vec3 d = normalize(vDir);
+          float deg = degrees(asin(clamp(d.y, -1.0, 1.0)));
           vec3 col = mix(c0, c1, smoothstep(e[0], e[1], deg));
           col = mix(col, c2, smoothstep(e[1], e[2], deg));
           col = mix(col, c3, smoothstep(e[2], e[3], deg));
           col = mix(col, c4, smoothstep(e[3], e[4], deg));
+          // Crisp glowing HDR sun disc + radial atmospheric halo (feeds 6-level Mipmap Bloom!)
+          float sunLum = dot(sunDisc, vec3(0.299, 0.587, 0.114));
+          if (sunLum > 0.01) {
+            float mu = max(dot(d, normalize(sunDir)), 0.0);
+            float halo = pow(mu, 14.0) * 0.44 + pow(mu, 64.0) * 0.55;
+            float disc = smoothstep(0.9964, 0.9986, mu);
+            col += sunDisc * halo + sunDisc * disc * 2.15;
+          }
           gl_FragColor = vec4(col, 1.0);
         }
       `,
@@ -148,6 +157,11 @@ export class EpisodeWorld {
     const camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toCam).normalize();
     const heroLight = toCam.clone().multiplyScalar(0.72).addScaledVector(camRight, 0.46).add(new THREE.Vector3(0, 0.56, 0)).normalize();
     ANIME_LIGHT.uLightDir.value.copy(sDir).lerp(heroLight, 0.72).normalize();
+    // Sync full character-to-world color temperature, ambient shadows & rim glow so rigs live INSIDE every lighting mood!
+    ANIME_LIGHT.uKeyColor.value.setRGB(...L.charTint);
+    ANIME_LIGHT.uAmbientTint.value.setRGB(...L.charAmbient);
+    ANIME_LIGHT.uRimTint.value.set(L.charRimTint);
+    ANIME_LIGHT.uRimBoost.value = L.charRimBoost;
     return L;
   }
 

@@ -99,7 +99,7 @@ export const SubtitlesOverlay: React.FC<{ frameOverride?: number }> = ({ frameOv
                 style={{
                   fontFamily: "'VoidmetricBlack', 'Segoe UI Black', 'Arial Black', Impact, sans-serif",
                   fontWeight: 900,
-                  fontSize: `${Math.round(60 * scale)}px`,
+                  fontSize: `${Math.round(66 * scale)}px`,
                   lineHeight: 1.08,
                   letterSpacing: "0.02em",
                   textTransform: "uppercase",

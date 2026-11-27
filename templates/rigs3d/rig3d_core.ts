@@ -934,6 +934,8 @@ export type AnimeFaceOpts = {
   gaze?: [number, number];
   eyeShape?: "sharp_shonen" | "wide_hero" | "narrow_cool" | "soft_female";
   eyeScale?: number;
+  /** Optional deterministic blink timing seed so multiple characters on-screen never blink in robotic unison! */
+  blinkSeed?: number;
   /** Optional character-specific overlay (e.g. Senku's stone cracks, Sukuna's markings, Gojo's Six Eyes, Luffy's scar!) */
   customDraw?: (ctx: CanvasRenderingContext2D, w: number, h: number, layout: AnimeFaceLayout) => void;
 };
@@ -1396,6 +1398,11 @@ export function createAnimeFaceController(
   };
 
   const initialTex = getTexture(curExpr, false, 0, curGaze);
+  // Deterministic per-character seed derived from palette (or explicit blinkSeed) so cast members blink naturally & independently!
+  const seedStr = `${baseOpts.skinColor ?? ""}|${baseOpts.irisColor ?? ""}|${baseOpts.browColor ?? ""}`;
+  let autoSeed = 17;
+  for (let i = 0; i < seedStr.length; i++) autoSeed = (autoSeed * 31 + seedStr.charCodeAt(i)) % 997;
+  const blinkSeed = baseOpts.blinkSeed ?? (autoSeed / 997);
 
   return {
     initialTex,
@@ -1417,9 +1424,19 @@ export function createAnimeFaceController(
         expr !== "smug_closed" &&
         expr !== "shout" &&
         expr !== "snarl";
-      const cycle = t >= 0 ? ((t + 1.15) % 3.4) : 99;
+      // Organic varied human blink cadence (~1.9-2.8 s intervals, crisp 3-frame = 0.10 s blink!)
+      let isBlinking = false;
+      if (canBlink) {
+        const shifted = t + 0.55 + blinkSeed * 1.45;
+        const slot = Math.floor(shifted / 2.45);
+        const h = Math.sin((slot + blinkSeed * 13.7) * 91.3 + 17.1) * 43758.5453;
+        const frac = h - Math.floor(h);
+        const blinkAt = 0.35 + frac * 1.65; // jittered time within each 2.45 s window
+        const localT = shifted - slot * 2.45;
+        isBlinking = localT >= blinkAt && localT < blinkAt + 0.105;
+      }
       curExpr = expr;
-      curBlink = canBlink && cycle < 0.13;
+      curBlink = isBlinking;
       curMouth = talk && t >= 0 ? (([0, 1, 2, 1, 2, 0] as const)[Math.floor(t * 9.0) % 6]) : 0;
       applyCurrent();
     },

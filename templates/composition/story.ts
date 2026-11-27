@@ -21,7 +21,7 @@ import {
 import { HitStopCue, ImpactFrameCue, SpeedlineCue } from "./sakuga_fx";
 
 export const FPS = 30;
-export const TOTAL = 1800; // Update to exact voiceover frame count (`Math.ceil(dur_s * 30)`)
+export const TOTAL = 390; // Update to exact voiceover frame count (`Math.ceil(dur_s * 30)`, ~1650-1860 for ~55-62s!)
 export const EPISODE_POWER_COLOR = "#38d8ff";
 export const EPISODE_POWER_CORE = "#eefcff";
 export { glide };

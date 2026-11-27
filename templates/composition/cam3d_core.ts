@@ -415,3 +415,19 @@ export function computeWhipVelUV(now: CamState, next: CamState, aspect = 9 / 16)
   const scale = Math.min(0.15, mag * 0.5) / mag;
   return [uvX * scale, uvY * scale];
 }
+
+/**
+ * Exact view-axis DOF focus distance from `cam` onto a world subject point (e.g. hero character's face/chest!).
+ * ALWAYS pass `focusDist: focusOnPoint(camAt(id, f), [actorX, 1.45, actorZ])` whenever `cInf >= 8` and `cam.look`
+ * is aimed past the character (e.g. tilted up toward skyline/sky), so the hero stays razor-sharp while the background melts!
+ */
+export function focusOnPoint(cam: CamState, subjectPos: V3): number {
+  const fx = cam.look[0] - cam.pos[0];
+  const fy = cam.look[1] - cam.pos[1];
+  const fz = cam.look[2] - cam.pos[2];
+  const fLen = Math.hypot(fx, fy, fz) || 1;
+  const rx = subjectPos[0] - cam.pos[0];
+  const ry = subjectPos[1] - cam.pos[1];
+  const rz = subjectPos[2] - cam.pos[2];
+  return Math.max(0.4, (rx * fx + ry * fy + rz * fz) / fLen);
+}

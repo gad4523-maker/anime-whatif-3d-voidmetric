@@ -8,10 +8,13 @@
 | 3 | `guest_reveal` | `full_body` | `195–345` | `6.50–11.50s` | [Canon character reveal] | Distinct set (`buildScienceLab` / `buildClassroom` / `buildCosmicRealm`) | Guest Anime 3D Rig reveal in genre-appropriate pose (verify 9:16 margins!). |
 | ... | ... | ... | ... | ... | ... | ... | ... |
 
-## 9:16 Multi-Scale & Genre Checklist (Mandatory Before Render)
+## 9:16 Multi-Scale, Visual Polish & Named-Cast Checklist (Mandatory Before Render)
+- [ ] **ZERO Unreferenced Named Characters:** Every named canon anime/manga character appearing on screen had user-supplied reference images AND was showcased in Stage 4 `CastSheet3D` (NO off-model characters sculpted from memory!)
 - [ ] Genre-locked visuals verified (if `grounded_genius`: ZERO magic halo rings, ZERO energy auras, ZERO levitation!)
-- [ ] Every distinct story location uses its own painted `env3d_core.ts` set (`buildBedroom`, `buildClassroom`, `buildScienceLab`, `buildSchoolTrackGym`, `buildCityStreet`, `buildForestGrove`)
+- [ ] Every distinct story location uses painted CanvasTextures (`makePaintedMat` / `makeEnvTex` / `env3d_core.ts`, bright sunlit albedos, colored darks `L* >= 18`, thin tinted seams)
+- [ ] Rich Cinema DOF (`cInf: 10–15` on CU/MS/Inserts, `0` on wides) + foreground depth framing (`10–25%` of one edge at `0.35–0.5× focusDist`) + practical lights (lamps/windows/headlights)
+- [ ] Anti-tripod camera pacing verified (`runCamKeys`, `2–4` keys/shot, `whatif_cli.py check-camera --story-ts` = `PASS`) + `6–8 f` `XFADE` on major place/act shifts + `IMPACT_FRAMES` / `SPEEDLINES` on peak genre-matched hits!
 - [ ] Multi-scale shot rhythm verified (max 2 `full_body` shots in a row; includes `closeup`, `medium`, and `insert` shots!)
 - [ ] Rule-of-Thirds staging verified (character torso never blocks chalkboards, blueprints, or key background props!)
 - [ ] Ran `whatif_cli.py check-framing` with `PASS` on all shots (with `shot_type` set on close-ups/mediums/inserts)
-- [ ] Rendered & visually inspected all 16 tiles of `LookCheck3D` (`0` clipped heads/limbs, `0` Play-Doh untextured rooms, `0` awkward MC cameos)
+- [ ] Rendered & visually inspected all 16 tiles of `LookCheck3D` (`0` clipped heads/limbs, `0` Play-Doh untextured rooms, `0` unreferenced named characters, `0` awkward MC cameos)

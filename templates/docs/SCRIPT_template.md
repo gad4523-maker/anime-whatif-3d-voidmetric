@@ -15,9 +15,21 @@
 
 ---
 
+## On-Screen Named Cast Roster (STRICT — Zero Unreferenced Named Characters!)
+> [!CAUTION]
+> List **EVERY** named canon anime/manga character who will visually appear on screen below. **NEVER** invent or sculpt extra named canon characters from memory without asking the user for their reference images first AND showcasing them in Stage 4 `CastSheet3D`! If the user only supplied refs for the title character, depict other canon beats via props, cutaways, 1st-person POV, dramatic shadows/silhouettes, or the title character alone! (Unnamed generic background extras like a random guard/teller/passerby do not need anime refs.)
+
+| Character | Role | Named Canon Character? | Reference Images Supplied? | Shown in Stage 4 `CastSheet3D`? |
+|---|---|---|---|---|
+| **Channel MC** | Locked Recurring Host | No (Locked `rig3d_mc.ts`) | Locked Rig | Yes (`f2`, `f3`) |
+| **[Title Character]** | Primary Guest | **Yes** | **[Yes / Pending User Upload]** | **Yes (`f0`, `f1`, `f3`, `f4`, `f5`)** |
+| *(Add row ONLY if user explicitly provides refs for another named character!)* | | | | |
+
+---
+
 ## Voiceover Script (Draft)
 ```text
-[Write clean, punchy, spoken-rhythm 175-195 word script here]
+[Write clean, punchy, spoken-rhythm 150-175 word (~52-62 s) script here]
 ```
 
 ## Custom SFX Generation Prompts (Give to User at Intake)

@@ -60,11 +60,11 @@ export function makePaintedMat(
 // Painted Cel-Anime Procedural Texture Library (Exported for custom episode props!)
 // ---------------------------------------------------------------------------
 
-/** Warm Japanese wood plank floor texture (staggered boards, grain lines, soft knots, ink bevel seams). */
+/** Luminous mromidev-calibrated honey-oak wood planks (staggered boards, lit/shaded bevel lips, nail dots, thin tinted seams!). */
 export function texWoodPlanks(
-  baseHex = "#c79662",
-  darkHex = "#9f6f42",
-  seamHex = "#4f3422",
+  baseHex = "#e8bc80",
+  darkHex = "#c69256",
+  seamHex = "#63361a",
   repeatX = 3,
   repeatY = 3
 ): THREE.CanvasTexture {
@@ -84,43 +84,56 @@ export function texWoodPlanks(
       for (let s = 0; s < splits.length - 1; s++) {
         const x0 = splits[s];
         const x1 = splits[s + 1];
+        const bw = x1 - x0;
         const tone = hash01(r * 19 + s * 7);
-        const c = baseCol.clone().lerp(darkCol, tone * 0.36);
+        const c = baseCol.clone().lerp(darkCol, tone * 0.34);
         ctx.fillStyle = `#${c.getHexString()}`;
-        ctx.fillRect(x0, y, x1 - x0, rh);
+        ctx.fillRect(x0, y, bw, rh);
 
-        // Soft warm highlight strip along upper bevel
-        ctx.fillStyle = "rgba(255, 240, 210, 0.14)";
-        ctx.fillRect(x0 + 2, y + 2, Math.max(0, x1 - x0 - 4), 5);
+        // Soft sunlit top bevel highlight + delicate shaded bottom bevel (mromidev textures.md 3.10)
+        ctx.fillStyle = "rgba(255, 246, 224, 0.24)";
+        ctx.fillRect(x0 + 2, y + 2, Math.max(0, bw - 4), 4);
+        ctx.fillStyle = "rgba(116, 62, 26, 0.14)";
+        ctx.fillRect(x0 + 2, y + rh - 5, Math.max(0, bw - 4), 3);
 
-        // Hand-painted wood grain strokes
-        ctx.strokeStyle = `rgba(92, 56, 30, ${0.14 + tone * 0.12})`;
-        ctx.lineWidth = 1.6;
-        for (let g = 0; g < 5; g++) {
-          const gy = y + 9 + g * ((rh - 16) / 4);
-          const wave = (hash01(r * 31 + s * 13 + g) - 0.5) * 6;
+        // Subtle warm wood grain strokes (low contrast so they never fight board seams!)
+        ctx.strokeStyle = `rgba(128, 74, 36, ${0.10 + tone * 0.08})`;
+        ctx.lineWidth = 1.4;
+        for (let g = 0; g < 4; g++) {
+          const gy = y + 10 + g * ((rh - 18) / 3);
+          const wave = (hash01(r * 31 + s * 13 + g) - 0.5) * 5;
           ctx.beginPath();
           ctx.moveTo(x0 + 3, gy);
-          ctx.bezierCurveTo(x0 + (x1 - x0) * 0.33, gy + wave, x0 + (x1 - x0) * 0.66, gy - wave, x1 - 3, gy);
+          ctx.bezierCurveTo(x0 + bw * 0.33, gy + wave, x0 + bw * 0.66, gy - wave, x1 - 3, gy);
           ctx.stroke();
         }
         // Subtle knot on occasional planks
-        if (hash01(r * 41 + s * 17) > 0.72 && x1 - x0 > 90) {
-          const kx = x0 + (x1 - x0) * (0.25 + hash01(r * 7 + s) * 0.5);
+        if (hash01(r * 41 + s * 17) > 0.76 && bw > 90) {
+          const kx = x0 + bw * (0.25 + hash01(r * 7 + s) * 0.5);
           const ky = y + rh * 0.52;
-          ctx.strokeStyle = "rgba(74, 44, 24, 0.28)";
-          ctx.lineWidth = 2;
+          ctx.strokeStyle = "rgba(104, 58, 28, 0.22)";
+          ctx.lineWidth = 1.8;
           ctx.beginPath();
-          ctx.ellipse(kx, ky, 14, 5, 0, 0, Math.PI * 2);
+          ctx.ellipse(kx, ky, 13, 4.5, 0, 0, Math.PI * 2);
           ctx.stroke();
+        }
+        // Crisp end-butt nail pegs (gives authentic illustrated wooden floor/deck craft!)
+        if (bw > 44) {
+          ctx.fillStyle = "rgba(92, 50, 24, 0.55)";
+          for (const nx of [x0 + 9, x1 - 9]) {
+            ctx.beginPath();
+            ctx.arc(nx, y + rh * 0.28, 2.0, 0, Math.PI * 2);
+            ctx.arc(nx, y + rh * 0.72, 2.0, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
       }
 
-      // Crisp horizontal plank seam + vertical end seams
+      // Crisp thin tinted horizontal & vertical plank seams (half the contrast of silhouette ink!)
       ctx.fillStyle = seamHex;
-      ctx.fillRect(0, y, w, 2.5);
+      ctx.fillRect(0, y, w, 2.0);
       for (let s = 1; s < splits.length - 1; s++) {
-        ctx.fillRect(splits[s] - 1, y, 2.2, rh);
+        ctx.fillRect(splits[s] - 0.9, y, 1.8, rh);
       }
     }
   }, repeatX, repeatY);
@@ -438,6 +451,61 @@ export function texAsphaltRoad(baseHex = "#393e4c", repeatX = 2, repeatY = 4): T
   }, repeatX, repeatY);
 }
 
+/** Rain-slicked anime highway/street asphalt with wet specular streaks, subtle puddle glare & double yellow centerlines! */
+export function texWetAsphaltRoad(
+  baseHex = "#344156",
+  reflectHex = "#8ec0f6",
+  repeatX = 2,
+  repeatY = 4
+): THREE.CanvasTexture {
+  return makeEnvTex(512, 512, (ctx, w, h) => {
+    ctx.fillStyle = baseHex;
+    ctx.fillRect(0, 0, w, h);
+    // Broad glossy rain-sheen longitudinal bands (reads immediately as wet asphalt under storm_rain/twilight_indigo!)
+    const sheen = ctx.createLinearGradient(0, 0, w, 0);
+    sheen.addColorStop(0.0, "rgba(18, 24, 38, 0.26)");
+    sheen.addColorStop(0.24, "rgba(165, 204, 248, 0.16)");
+    sheen.addColorStop(0.50, "rgba(28, 36, 52, 0.10)");
+    sheen.addColorStop(0.76, "rgba(165, 204, 248, 0.18)");
+    sheen.addColorStop(1.0, "rgba(18, 24, 38, 0.26)");
+    ctx.fillStyle = sheen;
+    ctx.fillRect(0, 0, w, h);
+
+    // Fine wet aggregate + soft reflective puddle ovals
+    for (let i = 0; i < 1600; i++) {
+      const lum = hash01(i * 19 + 3);
+      ctx.fillStyle = lum > 0.55 ? "rgba(210,230,255,0.10)" : "rgba(16,22,34,0.16)";
+      ctx.fillRect(hash01(i * 7 + 1) * w, hash01(i * 13 + 2) * h, 2 + (i % 3), 2 + (i % 2));
+    }
+    const rCol = new THREE.Color(reflectHex);
+    for (let i = 0; i < 12; i++) {
+      const px = w * (0.14 + hash01(i * 11 + 5) * 0.72);
+      const py = hash01(i * 17 + 9) * h;
+      const rx = 24 + hash01(i * 23) * 44;
+      const ry = 46 + hash01(i * 29) * 86;
+      const pg = ctx.createRadialGradient(px, py, 3, px, py, ry);
+      pg.addColorStop(0, `rgba(${Math.round(rCol.r * 255)},${Math.round(rCol.g * 255)},${Math.round(rCol.b * 255)},0.22)`);
+      pg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.scale(rx / ry, 1);
+      ctx.fillStyle = pg;
+      ctx.beginPath();
+      ctx.arc(0, 0, ry, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Crisp side edge lines + glowing double-yellow rain highway centerline (Rick's Clips Ref-3!)
+    ctx.fillStyle = "rgba(238, 244, 250, 0.80)";
+    ctx.fillRect(14, 0, 10, h);
+    ctx.fillRect(w - 24, 0, 10, h);
+    ctx.fillStyle = "rgba(255, 222, 112, 0.90)";
+    ctx.fillRect(w * 0.5 - 12, 0, 7, h);
+    ctx.fillRect(w * 0.5 + 5, 0, 7, h);
+  }, repeatX, repeatY);
+}
+
 /** Japanese tiled concrete sidewalk slabs with joints & subtle stone grain! */
 export function texSidewalkTiles(repeatX = 2, repeatY = 10): THREE.CanvasTexture {
   return makeEnvTex(256, 256, (ctx, w, h) => {
@@ -699,11 +767,11 @@ export function buildModernRoom(
   const g = new THREE.Group();
   g.position.set(originX, 0, 0);
 
-  const mFloor = celTex(texWoodPlanks(opts.floorColor ?? "#c79662", "#9c6d40", "#4d3320", 4, 4));
-  const mWall = celTex(texPlasterWall(opts.wallColor ?? "#efe7db", "#b6885c", "#5e412e"));
-  const mTrim = cel("#5c412e");
-  const mCounter = cel(opts.accentColor ?? "#3e485c");
-  const mDeskWood = celTex(texWoodPlanks("#d9b382", "#b88c58", "#6d4e32", 2, 1));
+  const mFloor = celTex(texWoodPlanks(opts.floorColor ?? "#e6ba7e", "#c28d52", "#63361a", 4, 4));
+  const mWall = celTex(texPlasterWall(opts.wallColor ?? "#f4ecdf", "#c8996a", "#66452e"));
+  const mTrim = cel("#62422e");
+  const mCounter = cel(opts.accentColor ?? "#3c4862");
+  const mDeskWood = celTex(texWoodPlanks("#ecc58d", "#ca9a62", "#6f4a28", 2, 1));
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.4, 10.5), mFloor);
   floor.position.set(0, -0.2, 0);
@@ -811,10 +879,10 @@ export function buildBedroom(
   const g = new THREE.Group();
   g.position.set(originX, 0, 0);
 
-  const mFloor = celTex(texWoodPlanks("#c5905c", "#98663a", "#4a301d", 4, 4));
-  const mWall = celTex(texPlasterWall(opts.wallColor ?? "#efe5d4", "#b28256", "#583d2a"));
-  const mWood = celTex(texWoodPlanks("#b88250", "#8e5f36", "#4a2f1c", 2, 1));
-  const mTrim = cel("#563b29");
+  const mFloor = celTex(texWoodPlanks("#e4b678", "#bf8a4e", "#603418", 4, 4));
+  const mWall = celTex(texPlasterWall(opts.wallColor ?? "#f4ebdc", "#c49464", "#62432e"));
+  const mWood = celTex(texWoodPlanks("#d9a76e", "#b27d48", "#5b371e", 2, 1));
+  const mTrim = cel("#5e402c");
 
   const floor = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.4, 10.5), mFloor);
   floor.position.set(0, -0.2, 0);
@@ -1482,26 +1550,49 @@ export function buildCosmicRealm(
   return g;
 }
 
-/** 10. Cel-Shaded Layered Anime Sky Clouds (with sunlit cream crest + cool blue underside depth!) */
-export function buildCelClouds(originX = 0, count = 8, color = "#fffbf5"): THREE.Group {
+/** 10. True 3-Tone Cauliflower Anime Sky Clouds (mromidev textures.md 3.13: sunlit cream crown, soft mid puffs, lavender/violet underside!) */
+export function buildCelClouds(
+  originX = 0,
+  count = 8,
+  color = "#fbf8f1",
+  mood: "day" | "golden" = "day"
+): THREE.Group {
   const g = new THREE.Group();
   g.position.set(originX, 0, 0);
-  const matTop = new THREE.MeshBasicMaterial({ color });
-  const matUnder = new THREE.MeshBasicMaterial({ color: "#cfe0f2" });
+  const topHex = mood === "golden" ? "#ffd8ae" : color;
+  const midHex = mood === "golden" ? "#f2a290" : "#e0e6f6";
+  const underHex = mood === "golden" ? "#9d82c2" : "#b2bfe9";
+  const matTop = new THREE.MeshBasicMaterial({ color: topHex });
+  const matMid = new THREE.MeshBasicMaterial({ color: midHex });
+  const matUnder = new THREE.MeshBasicMaterial({ color: underHex });
+
   for (let i = 0; i < count; i++) {
     const cl = new THREE.Group();
     const ang = -Math.PI * 0.82 + (i / Math.max(1, count - 1)) * Math.PI * 0.64;
     const dist = 36 + (i % 3) * 14;
     cl.position.set(Math.cos(ang) * dist, 10 + (i % 4) * 3.5, Math.sin(ang) * dist);
-    const base = new THREE.Mesh(new THREE.SphereGeometry(2.3, 12, 10), matUnder);
-    base.position.set(0, -0.55, 0);
-    base.scale.set(2.4, 0.45, 0.85);
+
+    // Flat cool lavender/violet underside shelf (gives crisp animated sky weight!)
+    const base = new THREE.Mesh(new THREE.SphereGeometry(2.4, 12, 10), matUnder);
+    base.position.set(0, -0.62, 0);
+    base.scale.set(2.55, 0.42, 0.85);
     base.layers.set(NOINK);
     cl.add(base);
+
+    // Mid-tone cauliflower transition puffs
+    for (let m = 0; m < 3; m++) {
+      const mp = new THREE.Mesh(new THREE.SphereGeometry(1.95 + (m === 1 ? 0.55 : 0), 12, 10), matMid);
+      mp.position.set((m - 1) * 1.95, -0.14 + (m === 1 ? 0.22 : 0), 0.18);
+      mp.scale.set(1.42, 0.66, 0.88);
+      mp.layers.set(NOINK);
+      cl.add(mp);
+    }
+
+    // Bright sunlit cream/peach upper billow crowns
     for (let k = 0; k < 4; k++) {
-      const puff = new THREE.Mesh(new THREE.SphereGeometry(2.0 + (k === 1 ? 1.1 : 0.2), 12, 10), matTop);
-      puff.position.set((k - 1.5) * 1.8, (k % 2) * 0.65, (k % 3 - 1) * 0.45);
-      puff.scale.set(1.4, 0.72, 0.9);
+      const puff = new THREE.Mesh(new THREE.SphereGeometry(1.85 + (k === 1 ? 1.05 : 0.22), 12, 10), matTop);
+      puff.position.set((k - 1.5) * 1.75, 0.25 + (k % 2) * 0.65, (k % 3 - 1) * 0.42);
+      puff.scale.set(1.36, 0.72, 0.86);
       puff.layers.set(NOINK);
       cl.add(puff);
     }

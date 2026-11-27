@@ -1,7 +1,8 @@
-// Voidmetric v3.0 Anime What-If 3D Short — Remotion + Three.js + Sakuga Impact-Frame Composition!
+// Voidmetric v3.7 Anime What-If 3D Short — Remotion + Three.js + Sakuga Impact-Frame Composition!
 // Post-processing chain:
 //   InkPass (world layer 0 only) -> LensBlur.pre -> LensBlur.main -> 6-level HDR Mipmap BloomEffect ->
-//   ToneMappingEffect(NEUTRAL) -> GradeEffect -> Sakuga Impact Frames / Radial Speedlines -> Clean Floating Subtitles!
+//   WhipBlur (16-tap directional blur on fast whip pans) -> ToneMappingEffect(NEUTRAL) -> GradeEffect ->
+//   GrainEffect (subtle deterministic tactile film grain) -> Sakuga Impact Frames / Speedlines -> Karaoke Subtitles!
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
@@ -10,7 +11,7 @@ import { useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
 import { BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode } from "postprocessing";
 import { InkPass } from "../bridge/ink";
-import { LensBlur } from "../bridge/lensblur";
+import { GrainEffect, LensBlur } from "../bridge/lensblur";
 import { WhipBlur } from "../bridge/whipblur";
 import { GradeEffect } from "../bridge/grade";
 import { EPISODE_LIGHTS } from "./lights";
@@ -51,16 +52,17 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   const fx = useMemo(
     () => ({
       ink: new InkPass(scene, camera as THREE.PerspectiveCamera, {
-        color: "#08060e",
-        widthNear: 4.2,
-        widthFar: 2.8,
+        color: "#05040a",
+        widthNear: 4.6,
+        widthFar: 2.9,
         creaseScale: 0.78,
       }),
-      lens: new LensBlur({ maxCoC: 20, nearScale: 1.15 }),
+      lens: new LensBlur({ maxCoC: 24, nearScale: 1.2 }),
       bloom: makeBloom(),
       whip: new WhipBlur(),
       tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
       grade: new GradeEffect(EPISODE_LIGHTS.morning.grade, 1.0),
+      grain: new GrainEffect({ amount: 0.016, cellPx: 1.5 }),
     }),
     [camera, scene]
   );
@@ -72,6 +74,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       else InkPass.prototype.dispose.call(fx.ink);
       if (typeof fx.lens.dispose === "function") fx.lens.dispose();
       if (typeof fx.whip.dispose === "function") fx.whip.dispose();
+      if (typeof fx.grain.dispose === "function") fx.grain.dispose();
     },
     [fx]
   );
@@ -86,12 +89,13 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   fx.lens.focus = focusDist;
   fx.lens.cInf = d.cInf;
 
-  // Automatic 12-tap directional motion blur during fast whip pans (zero cost on normal glides!)
+  // Automatic 16-tap directional motion blur during fast whip pans (zero cost on normal glides!)
   const [wx, wy] = computeWhipVelUV(camAt(id, animF), camAt(id, animF + 1));
   fx.whip.vel.set(wx, wy);
 
   const lName = lightForShot(id, animF);
   fx.grade.set(EPISODE_LIGHTS[lName].grade);
+  fx.grain.seed = animF;
 
   const passes = useMemo(
     () => [
@@ -102,6 +106,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       <primitive key="whip" object={fx.whip} />,
       <primitive key="tone" object={fx.tone} />,
       <primitive key="grade" object={fx.grade} />,
+      <primitive key="grain" object={fx.grain} />,
     ],
     [fx]
   );
