@@ -123,12 +123,19 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
 > **HARD STOP BEFORE VIDEO CREATION:** You MUST create the 3D character rigs, render visual turnaround + close-up showcase images, and **show the rendered characters directly to the user for visual approval BEFORE building worlds, VFX, scene timelines, or rendering any video.** Never proceed straight from rigging into video production without explicit user approval!
 
 1. **Reuse `rig3d_mc.ts` untouched as the recurring Channel MC** (24 bones, razor-sharp anime V-jawline, glasses, spiky hair, black zip jacket/white tee). Only add episode-specific actions/expressions in `setAction`.
-2. Build each guest 3D cel-shaded anime character rig using `rig3d_core.ts` matching user reference images and Beerus quality bar (`references/beerus-gold-standard/rig3d_beerus_sheet.jpg`).
-3. Export portable `.glb` rigs via `scripts/export_rigs_glb.mjs`, and render **clear visual showcase images** (`--gl=swangle --concurrency=1` in cloud, `--gl=angle --concurrency=4` on GPU):
-   - Front / 3/4 / Side / Back turnaround sheet for every newly created guest character,
-   - Tight face & expression close-up render,
-   - Full cast height/style lineup next to the locked Channel MC rig.
-4. **Present the rendered character showcase images to the user and STOP.** Wait for explicit approval (or apply any visual/anatomy/likeness fixes requested and re-show) before starting Stages 5–7!
+2. **MANDATORY 3D CHARACTER ACCURACY, PROPORTIONS & DETAIL STANDARD:**
+   Every newly created anime/manga character rig MUST be as **accurate and detailed to the original character in every proportion** as 3D procedural geometry + 1024×1024 UV painting can achieve — matching the Dragon Ball FighterZ–style cel-shaded quality bar of Beerus & Whis (`references/beerus-gold-standard/rig3d_beerus_sheet.jpg`, `rig3d_cast_lineup.jpg`). **NEVER build generic low-effort capsule/sphere placeholders!**
+   - **Exact Canonical Proportions & Scale:** Inspect every user reference image before writing code. Match canonical height relative to the Channel MC (`~1.75 m`), head-to-body ratio, shoulder-to-waist taper, torso/limb musculature or slenderness, hand/foot scale, and signature silhouette.
+   - **Face, Eyes & Multi-Lock Sculpted Hair:** Sculpt the exact canonical jawline, cheekbones, nose/snout, ears, and head contour via `loftRings` (never a plain sphere!). Paint crisp 1024×1024 UV face textures with accurate eye shape, iris patterns/glows, eyebrows, scars/markings/tattoos, and **at least 2–3 swappable expressions** (neutral/smirk/intense/snarl). Sculpt multi-lock 3D hair with `sculptCurveTube` / layered spikes/flutes/strands matching the original character's exact silhouette — never a smooth helmet dome!
+   - **Faithful Outfit, Costume Layers & Signature Accessories:** Build every iconic detail in real 3D geometry + painted UV patterns — collars, armor plates, sashes, folds, robes/cloaks, belts, pouches, cuffs, footwear, earrings/rings, blindfolds/glasses, weapons/staffs, wings/tails/horns/halos — with exact canonical colors and trim lines.
+   - **Full Articulated Skeleton (`24–34` bones) & 5-Finger Hands:** Always use `buildHand3D` (with accurate claws/gloves/wraps) so close-up hand poses and bone-locked 3D VFX look faithful to the anime/manga.
+3. **Export, Self-Critique & Visual Showcase:**
+   - Export portable `.glb` rigs via `scripts/export_rigs_glb.mjs`, and render **clear visual showcase images** (`--gl=swangle --concurrency=1` in cloud, `--gl=angle --concurrency=4` on GPU):
+     - Front / 3/4 / Side / Back turnaround sheet for every newly created guest character,
+     - Tight face & expression close-up render,
+     - Full cast height/proportion/style lineup standing next to the locked Channel MC rig.
+   - **Mandatory Agent Self-Critique First:** Visually compare your rendered turnaround & face close-up directly against the user's reference images and fix any proportion, face, hair, costume, or color mismatch BEFORE presenting to the user.
+4. **Present the rendered character showcase images to the user and STOP.** Wait for explicit approval (or apply any likeness/proportion/detail fixes requested and re-show) before starting Stages 5–7!
 
 ### Stage 5 — Audio Mastering & Rock-Steady Karaoke Subtitle Sync
 1. Keep the user's uploaded voiceover **100% untouched** (48 kHz stereo WAV).

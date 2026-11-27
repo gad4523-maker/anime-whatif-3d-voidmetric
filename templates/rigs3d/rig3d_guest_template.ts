@@ -1,9 +1,13 @@
 // Voidmetric 3D Anime Guest Character Rig Template (Dragon Ball FighterZ Cel-Shaded 3D Style)
-// Duplicate & customize this file for each episode's iconic anime character (e.g. Gojo, Sukuna, Goku, Madara).
-// Mandatory style rules:
+// Duplicate & customize this file for each episode's iconic anime/manga character (e.g. Gojo, Sukuna, Goku, Madara).
+// MANDATORY ACCURACY, PROPORTION & DETAIL RULES:
+// - NEVER ship the placeholder capsule/sphere geometry below as-is! Study every user reference image first.
+// - Match EXACT canonical proportions (height vs MC 1.75m, head-to-body ratio, shoulder/waist taper, limb ratios).
+// - Sculpt exact face/jawline/ears/nose via `loftRings` and multi-lock 3D hair via `sculptCurveTube` (never a smooth sphere hair dome!).
+// - Paint 1024x1024 UV face textures with accurate anime eye shape, iris details, markings/scars, and 2-3 swappable expressions.
+// - Model every signature costume layer & accessory in 3D (collars, robes, sashes, armor, cuffs, boots, weapons, halos, tails).
 // - Always use `rig3d_core.ts` (`makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `buildHand3D`).
-// - Include a painted 1024x1024 anime face texture with crisp eyes/brows/mouth (support 2+ expressions!).
-// - Articulated 5-finger hands (`buildHand3D`) so bone-locked 3D GLSL VFX can attach cleanly to `handR.fingers[1][1]` or `joints.wristR`.
+// - Articulated 5-finger hands (`buildHand3D`) so bone-locked 3D GLSL VFX attach cleanly to `handR.fingers[1][1]` or `joints.wristR`.
 // - Clamp any `Math.pow(base, exp)` calls with `Math.max(0, base)` to prevent NaN bloom blackouts!
 import * as THREE from "three";
 import {
