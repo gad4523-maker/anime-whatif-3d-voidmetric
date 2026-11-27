@@ -356,7 +356,9 @@ export function loftRings(
         cz *= sz;
       }
       positions.push(xOff + cx, R.y + ym, zOff + cz);
-      uvs.push(uCoord, vCoord);
+      // Flip U when uvFrontCenter is active so u increases LEFT-to-RIGHT (-X -> +X) across the front (+Z) face
+      // — preventing logos/text like Senku's "E=mc²" from mirroring horizontally!
+      uvs.push(opts.uvFrontCenter !== false ? 1.0 - uCoord : uCoord, vCoord);
     }
   }
 
