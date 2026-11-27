@@ -142,14 +142,14 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
     outline: 0.0040,
   });
 
-  // ---- Sculpted Curved S-Wave Multi-Lock 3D Anime Hair (Natural Forehead + Full Back Coverage — NEVER Covers Eyes!) ----
-  // High top-back hair cap tilted slightly back so forehead skin breathes naturally between bangs!
-  const hairBase = new THREE.SphereGeometry(0.102, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.54);
-  hairBase.scale(0.99, 1.02, 1.08);
-  addPart(head, hairBase, mHair, { pos: [0, 0.174, -0.022], rot: [-0.26, 0, 0], outline: 0.0040, name: "hair_crown" });
+  // ---- Sculpted Curved S-Wave Multi-Lock 3D Anime Hair (Zero Forehead Scalp Poke-Through + Full Back Coverage!) ----
+  // Full top-skull hair cap seated cleanly along the upper hairline so scalp NEVER peeks between front spikes!
+  const hairBase = new THREE.SphereGeometry(0.104, 24, 16, 0, Math.PI * 2, 0, Math.PI * 0.56);
+  hairBase.scale(0.99, 1.04, 1.09);
+  addPart(head, hairBase, mHair, { pos: [0, 0.168, -0.008], rot: [-0.10, 0, 0], outline: 0.0040, name: "hair_crown" });
   // Back-of-skull hair cover (zero bald patch from rear 3/4 turnaround!)
-  const hairBack = new THREE.SphereGeometry(0.101, 20, 14, Math.PI * 0.15, Math.PI * 0.70, Math.PI * 0.25, Math.PI * 0.56);
-  addPart(head, hairBack, mHair, { pos: [0, 0.150, -0.014], rot: [0, Math.PI, 0], outline: 0.0038, name: "hair_back" });
+  const hairBack = new THREE.SphereGeometry(0.103, 22, 14, Math.PI * 0.06, Math.PI * 0.88, Math.PI * 0.18, Math.PI * 0.64);
+  addPart(head, hairBack, mHair, { pos: [0, 0.148, -0.012], rot: [0, Math.PI, 0], outline: 0.0038, name: "hair_back" });
 
   // Back/Crown sweeping anime hair spikes (curved organic S-arcs, varied widths!)
   const crownSpecs: [number, number, number, number][] = [
