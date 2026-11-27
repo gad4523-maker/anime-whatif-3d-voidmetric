@@ -12,13 +12,25 @@ import numpy as np
 from PIL import Image, ImageDraw
 
 vid, out = sys.argv[1], sys.argv[2]
-meta = json.load(open(sys.argv[3])) if len(sys.argv) > 3 else {}
+raw_meta = json.load(open(sys.argv[3], encoding="utf-8")) if len(sys.argv) > 3 else {}
+meta = {"shots": raw_meta} if isinstance(raw_meta, list) else (raw_meta or {})
 shots = meta.get("shots", [])
 planned = set()
-for a, b in meta.get("xfade", []) + meta.get("planned", []) + ([meta["flash"]] if "flash" in meta else []):
-    planned.update(range(a - 1, b + 1))
+
+
+def _iter_spans(val):
+    if not val:
+        return []
+    if isinstance(val[0], (int, float)) and len(val) >= 2:
+        return [(int(val[0]), int(val[1]))]
+    return [(int(sp[0]), int(sp[1])) for sp in val if isinstance(sp, (list, tuple)) and len(sp) >= 2]
+
+
+for key in ("xfade", "planned", "flash", "flashes", "impact_frames"):
+    for a, b in _iter_spans(meta.get(key)):
+        planned.update(range(a - 1, b + 1))
 for s in shots:
-    planned.update((s["a"] - 1, s["a"]))
+    planned.update((int(s["a"]) - 1, int(s["a"])))
 os.makedirs(out, exist_ok=True)
 run = lambda *a: subprocess.run(a, capture_output=True, text=True)
 R = []
@@ -26,8 +38,8 @@ R = []
 pr = json.loads(run("ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,width,height,r_frame_rate,nb_frames,sample_rate,channels:format=duration", "-of", "json", vid).stdout)
 v = next(s for s in pr["streams"] if s["codec_type"] == "video")
 au = [s for s in pr["streams"] if s["codec_type"] == "audio"]
-R.append(f"SPECS {v['width']}x{v['height']} {v['r_frame_rate']} fps, {v.get('nb_frames')} frames, {float(pr['format']['duration']):.3f} s; audio: "
-         + ", ".join(f"{s['codec_name']} {s['sample_rate']} Hz {s['channels']}ch" for s in au) if au else "NONE")
+audio_desc = ", ".join(f"{s['codec_name']} {s['sample_rate']} Hz {s['channels']}ch" for s in au) if au else "NONE"
+R.append(f"SPECS {v['width']}x{v['height']} {v['r_frame_rate']} fps, {v.get('nb_frames')} frames, {float(pr['format']['duration']):.3f} s; audio: {audio_desc}")
 if au:
     e = run("ffmpeg", "-i", vid, "-map", "0:a:0", "-af", "ebur128=peak=true", "-f", "null", "-").stderr
     tail = e[e.rfind("Summary:"):]
@@ -56,8 +68,11 @@ for i in range(len(diff)):
     if diff[i] < 0.02:
         run_start = i if run_start is None else run_start
     else:
-        if run_start is not None and i - run_start >= 12: frozen.append((run_start, i))
+        if run_start is not None and i - run_start >= 12:
+            frozen.append((run_start, i))
         run_start = None
+if run_start is not None and len(diff) - run_start >= 12:
+    frozen.append((run_start, len(diff)))
 R.append(f"FRAMES {n}; black {black[:20]}; unplanned white {white[:20]}; frozen spans >=12f {frozen[:20]}")
 R.append(f"POPS (unplanned frame-diff spikes > 3x local median): {pops[:40]}")
 R.append(f"MOTION mean diff {diff.mean():.2f}; frames with diff<0.3 (held): {int((diff < 0.3).sum())} ({(diff < 0.3).mean() * 100:.0f}%)")

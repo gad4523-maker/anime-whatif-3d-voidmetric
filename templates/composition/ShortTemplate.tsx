@@ -142,6 +142,6 @@ export const EpisodeShort: React.FC<{ frameOverride?: number; hideSubtitles?: bo
 };
 
 // Clean 1-frame subtitle-free hero cover thumbnail (customize thumbFrame to the peak visual hook frame!)
-export const EpisodeThumb: React.FC<{ thumbFrame?: number }> = ({ thumbFrame = 920 }) => (
+export const EpisodeThumb: React.FC<{ thumbFrame?: number }> = ({ thumbFrame = 205 }) => (
   <EpisodeShort frameOverride={thumbFrame} hideSubtitles />
 );

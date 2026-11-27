@@ -26,15 +26,15 @@ export type ShotDef = {
 };
 
 export const SHOTS: ShotDef[] = [
-  { id: 1, name: "hook_wake", a: 0, b: 900, zone: Z_HOME, light: "morning", dof: { cInf: 8 } },
-  { id: 2, name: "guest_reveal", a: 900, b: TOTAL, zone: Z_VOID, light: "cosmic_void", dof: { cInf: 6 } },
+  { id: 1, name: "hook_wake", a: 0, b: 180, zone: Z_HOME, light: "morning", dof: { cInf: 8 } },
+  { id: 2, name: "guest_reveal", a: 180, b: TOTAL, zone: Z_VOID, light: "cosmic_void", dof: { cInf: 6 } },
 ];
 
 export const XFADE: Record<number, number> = { 2: 6 };
-export const FLASHES: { f: number; dur: number; tint?: string }[] = [{ f: 906, dur: 4, tint: "#e0f6ff" }];
-export const KICKS: [number, number][] = [[904, 0.16]];
-export const IMPACT_FRAMES: ImpactFrameCue[] = [{ f: 904, dur: 2, style: "bw_invert" }];
-export const SPEEDLINES: SpeedlineCue[] = [{ a: 904, b: 965, intensity: 0.65, color: "#ffffff", innerRadius: 0.32 }];
+export const FLASHES: { f: number; dur: number; tint?: string }[] = [{ f: 186, dur: 4, tint: "#e0f6ff" }];
+export const KICKS: [number, number][] = [[184, 0.16]];
+export const IMPACT_FRAMES: ImpactFrameCue[] = [{ f: 184, dur: 2, style: "bw_invert" }];
+export const SPEEDLINES: SpeedlineCue[] = [{ a: 184, b: 245, intensity: 0.65, color: "#ffffff", innerRadius: 0.32 }];
 export const HIT_STOPS: HitStopCue[] = [];
 
 export const shotAt = (f: number) => SHOTS.find((s) => f >= s.a && f < s.b) ?? SHOTS[SHOTS.length - 1];

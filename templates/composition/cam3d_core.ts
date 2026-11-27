@@ -7,6 +7,11 @@ export const glide = (u: number) => {
   const x = clamp01(u);
   return x * x * x * (x * (6 * x - 15) + 10);
 };
+/** Continuous non-stalling cinema curve: silky ease without freezing camera velocity to 0 at u=0 / u=1 (0% held frames!) */
+export const flowEase = (u: number) => {
+  const x = clamp01(u);
+  return 0.45 * x + 0.55 * glide(x);
+};
 
 /**
  * Exact 9:16 Safe Camera Distance Guard:
@@ -28,7 +33,7 @@ export function orbitCam(
   u: number,
   opts: { fov?: number; roll?: number; ease?: boolean } = {}
 ): CamState {
-  const k = opts.ease !== false ? glide(u) : clamp01(u);
+  const k = opts.ease !== false ? flowEase(u) : clamp01(u);
   const a = ((angStartDeg + (angEndDeg - angStartDeg) * k) * Math.PI) / 180;
   const h = heightStart + (heightEnd - heightStart) * k;
   return {
@@ -47,7 +52,7 @@ export function dutchPush(
   u: number,
   opts: { rollDeg?: number; fov?: number; yOff?: number; xOff?: number } = {}
 ): CamState {
-  const k = glide(u);
+  const k = flowEase(u);
   const d = distStart + (distEnd - distStart) * k;
   const r = ((opts.rollDeg ?? -7.5) * Math.PI) / 180;
   return {
@@ -84,7 +89,7 @@ export function lowAngleHero(
   u: number,
   opts: { swayX?: number; fov?: number; rollDeg?: number } = {}
 ): CamState {
-  const k = glide(u);
+  const k = flowEase(u);
   const sx = (opts.swayX ?? 0.55) * (k - 0.5);
   return {
     pos: [target[0] + sx, Math.max(0.35, target[1] - 0.52), target[2] + dist],

@@ -901,12 +901,13 @@ def cmd_check_beats(args: argparse.Namespace) -> None:
     late_count = 0
     for b in beats:
         name = b.get("name", "beat")
-        v_frame = int(b["frame"])
-        kw = clean_tok(str(b["keyword"]))
+        v_frame = int(b.get("frame", b.get("impact_frame", 0)))
+        raw_kw = str(b.get("keyword") or b.get("word") or b.get("text") or "")
+        kw = clean_tok(raw_kw)
         occ = int(b.get("occurrence", 1))
         matches = [w for w in words if clean_tok(str(w.get("word", w.get("text", "")))) == kw]
-        if len(matches) < occ:
-            results.append({"name": name, "keyword": b["keyword"], "status": "MISSING_WORD"})
+        if not kw or len(matches) < occ:
+            results.append({"name": name, "keyword": raw_kw, "status": "MISSING_WORD"})
             late_count += 1
             continue
         w = matches[occ - 1]
@@ -922,7 +923,7 @@ def cmd_check_beats(args: argparse.Namespace) -> None:
         results.append(
             {
                 "name": name,
-                "keyword": b["keyword"],
+                "keyword": raw_kw,
                 "visual_frame": v_frame,
                 "word_frame": w_frame,
                 "delta_frames": delta,
