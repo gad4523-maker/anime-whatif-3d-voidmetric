@@ -1,27 +1,35 @@
-# Canon Lore & Power Fact Sheet — {{EPISODE_TITLE}}
-**Slug:** `{{EPISODE_SLUG}}` | **Canon Policy:** Latest Official Canon (Manga + Databooks), Manga Spoilers Explicitly Flagged
+# Full-Canon Lore & Power Fact Sheet — {{EPISODE_TITLE}}
+**Slug:** `{{EPISODE_SLUG}}` | **Canon Policy:** Full Official Canon (**Original Source Manga / Manhwa / Light Novels + Official Databooks / Author Q&As + Canon Anime** — NOT restricted to anime-only; non-canon filler & fan myths strictly excluded).
+
+---
+
+## 0. Canon Authority & Continuity Map
+- **Primary Original Source:** [Manga / Manhwa / Light Novel title + latest verified chapter/volume]
+- **Official Databooks / Fanbooks / Author Q&As Consulted:** [Title / SBS / Interview]
+- **Canon Anime / Canon Movies Consulted:** [Series / Episodes / Canon Films]
+- **Manga vs. Anime Continuity Divergences (if any):** [Note exact differences clearly, e.g., DBS Manga vs. Anime]
 
 ---
 
 ## 1. Verified Canon Mechanics (With Primary Citations)
-- **Ability Name & Exact Mechanism:** [Describe exact how it works] — *Source: [Manga Ch. XX / Anime Ep. XX / Official Databook]*
-- **Activation & Cost (Stamina / Ki / Cursed Energy / Mental State):** [Describe exact cost] — *Source: [Citation]*
+- **Ability Name & Exact Mechanism:** [Describe exact how it works] — *Source: [Manga Ch. XX / LN Vol. X / Official Databook / Anime Ep. XX]*
+- **Activation & Cost (Stamina / Ki / Cursed Energy / Mana / Mental State):** [Describe exact cost] — *Source: [Citation]*
 - **Signature Canon Feats:**
-  1. [Feat 1 + Chapter/Episode citation]
-  2. [Feat 2 + Chapter/Episode citation]
+  1. [Feat 1 + Chapter/Volume/Episode citation]
+  2. [Feat 2 + Chapter/Volume/Episode citation]
 
-## 2. Stated Canon Limits, Rules & Weaknesses (Crucial for the Twist!)
+## 2. Stated Canon Limits, Rules & Weaknesses (Foundation of the Twist!)
 - **Hard Limitation #1:** [What it CANNOT do or what breaks control] — *Source: [Citation]*
 - **Hard Limitation #2:** [Backlash / collateral damage / fatal flaw] — *Source: [Citation]*
 
-## 3. Common Fan Myths & Misconceptions to AVOID
-- ❌ **Myth:** [Common viral fan misconception]
-  - ✅ **Canon Reality:** [What manga/databook actually states + citation]
+## 3. Common Fan Myths & Non-Canon Filler to AVOID
+- ❌ **Myth / Non-Canon Filler:** [Common viral misconception or anime-only filler feat]
+  - ✅ **Official Canon Reality:** [What manga/novel/databook actually states + citation]
 
-## 4. Manga Spoilers Flagged for User Approval
+## 4. Unadapted Manga / Novel Spoilers (Flagged for User Choice)
 > [!WARNING]
-> Review these manga-only feats/rules before scripting and confirm whether to **INCLUDE** or **KEEP ANIME-ONLY**:
-- [ ] **Spoiler Item 1:** [Manga Ch. XX feat/rule — NOT yet animated]
+> Full latest official canon (including manga/novel material) is **included by default**. Uncheck any unadapted spoiler below if you prefer to hold it back:
+- [x] **Spoiler Item 1:** [Manga Ch. XX / LN Vol. X feat or rule — NOT yet animated]
 
 ## 5. What-If Real-World Consequence Extrapolations
 *(Clearly separated from canon so viewers recognize creative extrapolation vs. stated lore)*
@@ -30,6 +38,6 @@
 ---
 
 ## 6. Adversarial Lore Audit Sign-Off (Completed After Drafting `SCRIPT.md`)
-- **Auditor:** Independent `research` subagent
+- **Auditor:** Independent fact-check pass
 - **Status:** `[PENDING / PASS / REVISIONS REQUIRED]`
 - **Line-by-Line Findings:** [Summary of verified claims & any corrected lines]

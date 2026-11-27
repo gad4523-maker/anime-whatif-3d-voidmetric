@@ -9,7 +9,7 @@ Built from our gold-standard **Beerus Destruction Power 3D Anime Short** combine
 ## Key Features
 
 - **100% Gemini Tasks Cloud-Ready (`cloud-1080p`):** Includes `templates/starter-remotion/` (Node 18+ compatible, auto-`swangle` WebGL detection), `MSAA = 0` CPU profile, and `whatif_cli.py render-cloud` — an **OOM-proof, resumable 300-frame chunked renderer** built specifically for 2-vCPU / 6.9 GiB RAM / 0-swap Linux sandboxes!
-- **Canon Lore & Power Fact-Checker Gate:** Verifies powers against latest official manga + databooks, explicitly flags manga spoilers for user decision, and runs an adversarial script audit before rigging or voiceover.
+- **Full-Canon Lore & Power Fact-Checker Gate (NOT Anime-Only!):** Prioritizes **original source canon** (Manga, Manhwa, Light Novels, Official Databooks, Author Q&As) alongside Canon Anime — explicitly documenting manga-vs-anime differences, excluding non-canon filler/fan myths, flagging unadapted spoilers for user choice, and running an adversarial script audit before rigging or voiceover.
 - **Locked Channel Face (`rig3d_mc.ts`):** Permanent 24-bone articulated Channel MC 3D rig (sharp shonen V-jawline, black 3D glasses, 18-lock spiky hair, black zip jacket & white tee) carried across every episode.
 - **Dragon Ball FighterZ–Style 3D Cel-Shaded Anime Rigs (`rig3d_core.ts`):** 3-band GLSL cel shading, smooth-normal inverted-hull ink outlines, 1024×1024 painted UV face maps, 5-finger articulated hands, and portable `.glb` export.
 - **Bone-Locked 3D GLSL Volumetric VFX (`vfx3d_core.ts`):** Real-time `localToWorld` bone attachment, palm-front offsets, spatial dissolve shaders, aura cylinders, shockwaves, and 6-level HDR Mipmap Bloom.
@@ -24,14 +24,14 @@ Built from our gold-standard **Beerus Destruction Power 3D Anime Short** combine
 Once you push this repo to GitHub, start a new **Gemini Tasks** session and paste this prompt:
 
 ```text
-Clone my workflow pack from https://github.com/<YOUR-USERNAME>/anime-whatif-3d-voidmetric.git
+Clone my workflow pack from https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
 Read SKILL.md completely and follow EVERY stage and approval gate strictly using the `cloud-1080p` profile (1080x1920 @ 30 fps, MSAA=0, --gl=swangle, --concurrency=1, chunked render via `python3 scripts/whatif_cli.py render-cloud`).
 
 Topic: "What If You Woke Up With [CHARACTER]'s Power?"
 
 Start at Stage 1 & Stage 2:
 1. Ask me for the character/VFX reference images and give me 5 tailored SFX generation prompts.
-2. Run the Canon Lore Fact-Checker (latest manga + databooks, explicitly flagging any manga spoilers) and draft LORE_FACT_SHEET.md + SCRIPT.md + Adversarial Lore Audit.
+2. Run the Full-Canon Lore Fact-Checker (original source manga/manhwa/light novels + official databooks + canon anime — NOT limited to anime-only; exclude non-canon filler/fan myths and flag unadapted spoilers) and draft LORE_FACT_SHEET.md + SCRIPT.md + Adversarial Lore Audit.
 3. Pause for my approval before building the 3D rigs!
 ```
 

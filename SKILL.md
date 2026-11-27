@@ -2,14 +2,15 @@
 name: anime-whatif-3d-voidmetric
 description: >-
   End-to-end production pipeline for ~60 s vertical 1080p (cloud-1080p for
-  Gemini Tasks CPU sandboxes) or 2K (local-2k GPU) 30 fps 3D Anime "What If You
-  Woke Up With [Character]'s Power?" shorts rendered in Three.js + Remotion.
-  Enforces a mandatory canon lore & power fact-checker (manga + official
-  databooks with explicit spoiler flags), reuses the locked Voidmetric Channel
-  MC 3D rig, builds cel-shaded 3D anime character rigs with .glb export,
-  bone-locked 3D GLSL VFX, clean floating karaoke subtitles, zero-clipping 9:16
-  camera frustum verification, OOM-proof chunked cloud rendering, and full
-  short_qa.py audits.
+  Gemini Tasks CPU sandboxes), Colab Pro L4/T4 GPU, or 2K (local-2k GPU) 30 fps
+  3D Anime/Manga "What If You Woke Up With [Character]'s Power?" shorts rendered
+  in Three.js + Remotion. Enforces a mandatory full-canon lore & power
+  fact-checker (original source manga, manhwa, light novels, official databooks,
+  author Q&As, and canon anime — excluding non-canon filler/fan myths, with
+  unadapted spoilers flagged), reuses the locked Voidmetric Channel MC 3D rig,
+  builds cel-shaded 3D anime character rigs with .glb export, bone-locked 3D
+  GLSL VFX, clean floating karaoke subtitles, zero-clipping 9:16 camera frustum
+  verification, OOM-proof chunked cloud rendering, and full short_qa.py audits.
 ---
 
 # Anime What-If 3D Short — Voidmetric Studio Pipeline
@@ -41,7 +42,7 @@ Supports **three verified execution profiles**:
 
 ```bash
 # 1. Clone workflow pack & bootstrap a self-contained Remotion workspace
-git clone https://github.com/<YOUR-USERNAME>/anime-whatif-3d-voidmetric.git
+git clone https://github.com/gad4523-maker/anime-whatif-3d-voidmetric.git
 cd anime-whatif-3d-voidmetric
 
 # 2. Scaffold new episode with --bootstrap-remotion & cloud-1080p profile (MSAA=0)
@@ -95,17 +96,22 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - **Voiceover plan** (user-uploaded ~60 s voiceover `.mp3`/`.wav`, target ~175–195 words).
 3. Give the user **5 tailored SFX generation prompts** customized to that anime power.
 
-### Stage 2 — Mandatory Canon Lore & Power Fact-Checker Gate
+### Stage 2 — Mandatory Full-Canon Lore & Power Fact-Checker Gate
 > [!CAUTION]
-> **NEVER skip or guess canon anime power rules.** Inaccurate ability descriptions destroy viewer trust.
+> **NEVER restrict fact-checking to anime-only, and NEVER guess canon power rules.** Inaccurate or outdated ability descriptions destroy viewer trust.
 
-1. Search official primary sources to verify powers against **latest official canon (manga chapters + official databooks + anime episodes)**.
-2. Fill `projects/<slug>/LORE_FACT_SHEET.md` with:
-   - **Verified Canon Mechanics** (exact mechanism, activation rules, stamina/energy/mindset cost, feats with chapter/episode citations).
-   - **Stated Canon Limits & Weaknesses** (foundation of the twist).
-   - **Common Fan Myths to Avoid**.
-   - **Manga Spoilers Flagged:** Explicitly list any manga-only feats/rules not yet animated and **ask the user** whether to include them or keep anime-only.
-   - **What-If Extrapolations** clearly labeled separately from canon.
+1. **Enforce the Official Canon Authority Hierarchy** (do NOT treat anime-only as the limit — manga, manhwa, light novels, and official databooks are ALL first-class canon!):
+   - **Tier 1 (Primary Canon — Always Prioritize):** Original source material (**Manga chapters, Manhwa, Light Novels / Web Novels**), **Official Databooks / Fanbooks**, and **Author Q&As / SBS / Interviews**.
+   - **Tier 2 (Canon Adaptation & Continuity):** **Canon Anime episodes & Canon Movies**. When Manga and Anime continuities diverge (e.g., *Dragon Ball Super* Manga vs. Anime), explicitly document BOTH continuities and state which canon feat/rule is used!
+   - **Tier 3 (STRICTLY EXCLUDE unless user asks):** Non-canon anime filler arcs, non-canon movies/OVAs, uncited fan wiki edits, and powerscaling/TikTok headcanon myths.
+2. **Scope:** Topics are NOT locked strictly to adapted anime — manga-only, manhwa, and light-novel characters/abilities are 100% supported.
+3. Use live web search to verify every mechanic, limitation, and feat, then fill `projects/<slug>/LORE_FACT_SHEET.md` with:
+   - **Verified Canon Mechanics** (exact mechanism, activation rules, stamina/energy/mindset cost, feats with exact chapter/volume/databook/episode citations).
+   - **Stated Canon Limits & Weaknesses** (the real foundation of the What-If twist).
+   - **Continuity Notes (Manga vs. Anime Differences)** whenever both exist.
+   - **Common Fan Myths & Non-Canon Filler to Avoid**.
+   - **Unadapted Manga/Novel Spoilers Flagged:** Explicitly flag manga/novel-only feats not yet animated so the user can choose whether to include them (default: **include full latest official canon** unless user opts out).
+   - **What-If Real-World Extrapolations** clearly labeled separately from stated canon.
 
 ### Stage 3 — ~60s Viral Script + Adversarial Lore Audit (**APPROVAL GATE 1**)
 1. Draft `projects/<slug>/SCRIPT.md` (~175–195 words, ~55–65 s) using the proven Beerus beat arc (`references/beerus-gold-standard/SCRIPT_beerus_example.md`). Avoid repetitive gimmick standalone `"Wrong."` drops — earn the twist naturally through an escalating consequence!
