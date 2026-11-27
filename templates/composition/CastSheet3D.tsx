@@ -120,19 +120,19 @@ const StudioScene: React.FC = () => {
       s.add(g4.root);
     }
 
-    // Stage 1: Guest Dual Extreme Face Close-Up Portraits
+    // Stage 1: Guest Dual Extreme Face Close-Ups (Front-3/4 Expression + Crisp Side-3/4 Profile verifying V-Jaw, 3D Nose & Ears!)
     {
       const s = stages[1];
       const gL = buildGuestRig3D({ intense: false });
       gL.setPose("idle", 0);
-      gL.root.position.set(-0.56, 0, 0);
-      gL.root.rotation.y = 0.26;
+      gL.root.position.set(-0.42, 0, 0);
+      gL.root.rotation.y = 0.18;
       s.add(gL.root);
 
       const gR = buildGuestRig3D({ intense: true });
-      gR.setPose("power_point", 0.1);
-      gR.root.position.set(0.56, 0, 0);
-      gR.root.rotation.y = -0.22;
+      gR.setPose("idle", 0.1);
+      gR.root.position.set(0.42, 0, 0);
+      gR.root.rotation.y = -0.78; // 3/4 profile to showcase sharp upswept jawline, 3D nose & sculpted ear!
       s.add(gR.root);
     }
 
@@ -206,9 +206,9 @@ const StudioScene: React.FC = () => {
     cam.fov = 34;
     cam.lookAt(0, 1.04, 0);
   } else if (idx === 1) {
-    cam.position.set(0, 1.66, 2.25);
-    cam.fov = 32;
-    cam.lookAt(0, 1.62, 0.06);
+    cam.position.set(0, 1.72, 1.55);
+    cam.fov = 30;
+    cam.lookAt(0, 1.69, 0.04);
   } else {
     cam.position.set(0, 1.18, 4.35);
     cam.fov = 35;
@@ -244,8 +244,8 @@ const LABELS: { title: string; cols: string[] }[] = [
     cols: ["FRONT POSE", "3/4 ACTION POSE", "BACK 3/4 TURNAROUND", "3D SKELETON RIG"],
   },
   {
-    title: "GUEST CHARACTER — EXTREME FACE & EXPRESSION CLOSE-UPS",
-    cols: ["NEUTRAL EXPRESSION PORTRAIT", "INTENSE BATTLE EXPRESSION"],
+    title: "GUEST CHARACTER — EXTREME FACE, 3D NOSE, EARS & PROFILE JAWLINE CLOSE-UPS",
+    cols: ["FRONT 3/4 PORTRAIT (EYES & V-CHIN)", "SIDE 3/4 PROFILE (3D NOSE, EAR & UPSWEPT JAW)"],
   },
   {
     title: "LOCKED CHANNEL MC — 3D ANIME RIG (SHARP V-JAWLINE + 24 BONES)",

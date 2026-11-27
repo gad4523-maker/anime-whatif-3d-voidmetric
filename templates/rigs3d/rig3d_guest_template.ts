@@ -1,13 +1,13 @@
-// Voidmetric 3D Anime Guest Character Rig Template (Dragon Ball FighterZ Cel-Shaded 3D Style)
-// Duplicate & customize this file for each episode's iconic anime/manga character (e.g. Gojo, Sukuna, Goku, Madara).
-// MANDATORY ACCURACY, PROPORTION & DETAIL RULES:
-// - NEVER ship the placeholder starter geometry below as-is! Study every user reference image first.
-// - Match EXACT canonical proportions (height vs MC 1.75m, head-to-body ratio, shoulder/waist taper, limb ratios).
-// - Sculpt exact face/jawline/ears/nose via `loftRings` and multi-lock 3D hair via `sculptCurveTube` (never a smooth sphere hair dome!).
-// - Paint 1024x1024 UV face textures with accurate anime eye shape, iris details, markings/scars, and 2-3 swappable expressions.
-// - Model every signature costume layer & accessory in 3D (collars, robes, sashes, armor, cuffs, boots, weapons, halos, tails).
-// - Always use `rig3d_core.ts` (`makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `sculptLimbGeo`, `buildHand3D`).
-// - Clamp any `Math.pow(base, exp)` calls with `Math.max(0, base)` to prevent NaN bloom blackouts!
+// Voidmetric 3D Anime Guest Character Rig Template (Dragon Ball FighterZ / Modern Shonen 3D Style)
+// Duplicate & customize this file for each episode's iconic anime/manga character (e.g. Senku, Gojo, Sukuna, Goku, Madara).
+//
+// MANDATORY ANIME ACCURACY, FACE & PROPORTION RULES:
+// 1. ALWAYS use `buildAnimeHead3D()` + `paintAnimeFaceTex()` + `makeAnimeMat({ isFace: true })` from `rig3d_core.ts`
+//    for humanoid anime characters! NEVER sculpt a head with plain circular/elliptical rings or a sphere!
+// 2. Use `customDraw` inside `paintAnimeFaceTex()` for signature facial markings (Senku's stone cracks, Sukuna's markings, scars).
+// 3. Sculpt curved S-wave multi-lock 3D anime hair via `sculptCurveTube` with varied widths & bangs framing (NOT covering!) the eyes.
+// 4. Match exact canonical 7-head-tall shonen body proportions, flared collars, layered garments, footwear & signature accessories!
+// 5. Clamp any `Math.pow(base, exp)` calls with `Math.max(0, base)` to prevent NaN bloom blackouts!
 import * as THREE from "three";
 import {
   AnimeRig3D,
@@ -16,193 +16,230 @@ import {
   addPart,
   applyXRayMode,
   attachBoneVisualizer,
+  buildAnimeHead3D,
   buildHand3D,
   loftRings,
   makeAnimeMat,
-  makeCanvasTex,
+  paintAnimeFaceTex,
   sculptCurveTube,
   sculptLimbGeo,
 } from "./rig3d_core";
-
-export type GuestExpr3D = "neutral" | "intense";
-
-function makeGuestFaceTex(expr: GuestExpr3D = "neutral"): THREE.CanvasTexture {
-  const intense = expr === "intense";
-  return makeCanvasTex(1024, 1024, (ctx, w, h) => {
-    ctx.fillStyle = "#f2cfb6";
-    ctx.fillRect(0, 0, w, h);
-
-    const cx = w * 0.5;
-    // Subtle nose bridge shadow
-    ctx.fillStyle = "#d9a98b";
-    ctx.beginPath();
-    ctx.moveTo(cx, h * 0.47);
-    ctx.lineTo(cx - 12, h * 0.56);
-    ctx.lineTo(cx + 14, h * 0.558);
-    ctx.closePath();
-    ctx.fill();
-
-    // Sharp anime eyes (replace colors/shapes to match reference character!)
-    for (const s of [-1, 1]) {
-      ctx.save();
-      ctx.translate(cx + s * 112, h * 0.445);
-      ctx.scale(s, 1);
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.moveTo(-58, -6);
-      ctx.quadraticCurveTo(-6, -30, 62, -4);
-      ctx.quadraticCurveTo(8, 26, -58, 14);
-      ctx.closePath();
-      ctx.fill();
-      ctx.lineWidth = 9;
-      ctx.strokeStyle = "#16101c";
-      ctx.stroke();
-
-      ctx.fillStyle = intense ? "#c64aff" : "#3a8dff";
-      ctx.beginPath();
-      ctx.ellipse(2, 2, 20, 18, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#120c18";
-      ctx.beginPath();
-      ctx.ellipse(2, 2, 8, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#ffffff";
-      ctx.beginPath();
-      ctx.arc(-6, -5, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = "#181020";
-      ctx.lineWidth = 12;
-      ctx.beginPath();
-      ctx.moveTo(-66, intense ? -28 : -38);
-      ctx.lineTo(64, intense ? -52 : -40);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    // Confident smirk / battle snarl
-    ctx.strokeStyle = "#1a1020";
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(cx - 48, h * 0.65);
-    ctx.quadraticCurveTo(cx, intense ? h * 0.675 : h * 0.658, cx + 56, h * 0.638);
-    ctx.stroke();
-  });
-}
 
 export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): AnimeRig3D {
   const root = new THREE.Group();
   root.name = "GuestAnimeRig3D";
 
-  const mSkin = makeAnimeMat({ color: "#f2cfb6", shadowColor: "#c8967c", rimColor: "#ffe7d6", rimPower: 3.4, rimStrength: 0.45 });
+  const mSkin = makeAnimeMat({
+    color: "#f5d0b5",
+    shadowColor: "#c89074",
+    rimColor: "#ffe8d6",
+    rimPower: 3.4,
+    rimStrength: 0.40,
+    specStrength: 0.06,
+    isFace: true,
+  });
+  const faceTex = paintAnimeFaceTex({
+    skinColor: "#f5d0b5",
+    skinShade: "#d49a7c",
+    irisColor: opts?.intense ? "#d62cff" : "#2278ff",
+    irisInnerColor: opts?.intense ? "#ff9eff" : "#8ee6ff",
+    irisDarkColor: opts?.intense ? "#3b0652" : "#0b2458",
+    browColor: "#1d1a26",
+    expr: opts?.intense ? "snarl" : "smirk",
+    eyeShape: "sharp_shonen",
+    eyeScale: 1.0,
+  });
   const mFace = makeAnimeMat({
     color: "#ffffff",
-    shadowColor: "#d9b4a0",
-    map: makeGuestFaceTex(opts?.intense ? "intense" : "neutral"),
-    rimColor: "#ffe7d6",
-    rimPower: 3.8,
-    rimStrength: 0.35,
+    shadowColor: "#cfa088",
+    map: faceTex,
+    rimColor: "#ffe8d6",
+    rimPower: 3.6,
+    rimStrength: 0.30,
+    specStrength: 0.04,
+    isFace: true,
   });
-  const mSuit = makeAnimeMat({ color: "#242838", shadowColor: "#111420", rimColor: "#8c9eff", rimPower: 3.0, rimStrength: 0.55 });
-  const mHair = makeAnimeMat({ color: "#eaeef8", shadowColor: "#9aa8c8", rimColor: "#ffffff", rimPower: 2.8, rimStrength: 0.72 });
+  const mSuit = makeAnimeMat({
+    color: "#222636",
+    shadowColor: "#0f121e",
+    rimColor: "#8c9eff",
+    rimPower: 3.0,
+    rimStrength: 0.44,
+    specStrength: 0.0, // matte anime cloth — zero plastic sheen!
+  });
+  const mCollar = makeAnimeMat({
+    color: "#2e344a",
+    shadowColor: "#141826",
+    rimColor: "#a6b6ff",
+    rimPower: 3.0,
+    rimStrength: 0.46,
+    specStrength: 0.0,
+  });
+  const mHair = makeAnimeMat({
+    color: "#eef2fc",
+    shadowColor: "#98a8cc",
+    rimColor: "#ffffff",
+    rimPower: 2.6,
+    rimStrength: 0.68,
+    specStrength: 0.22,
+    specSize: 0.90,
+  });
 
+  // ---- Sleek 7-Head-Tall Shonen Skeleton Hierarchy (~1.78 m) ----
   const hips = new THREE.Group();
-  hips.position.set(0, 0.98, 0);
+  hips.position.set(0, 0.99, 0);
   root.add(hips);
 
   const spine = new THREE.Group();
-  spine.position.set(0, 0.08, 0);
+  spine.position.set(0, 0.07, 0);
   hips.add(spine);
 
   const chest = new THREE.Group();
-  chest.position.set(0, 0.28, 0);
+  chest.position.set(0, 0.27, 0);
   spine.add(chest);
 
   const neck = new THREE.Group();
-  neck.position.set(0, 0.26, 0);
+  neck.position.set(0, 0.23, 0);
   chest.add(neck);
 
   const head = new THREE.Group();
-  head.position.set(0, 0.11, 0);
+  head.position.set(0, 0.095, 0);
   neck.add(head);
 
-  // Sculpted pelvis + torso (replace rings/costume layers to match reference character!)
+  // Connected Pelvis + Slim Athletic Shonen Torso + Upturned Anime Collar
   const pelvisRings: RingSpec[] = [
-    { y: -0.08, rx: 0.145, rz: 0.105 },
-    { y: 0.02, rx: 0.15, rz: 0.108 },
-    { y: 0.10, rx: 0.142, rz: 0.102 },
+    { y: -0.07, rx: 0.132, rz: 0.096 },
+    { y: 0.01, rx: 0.138, rz: 0.100 },
+    { y: 0.09, rx: 0.128, rz: 0.092 },
   ];
-  addPart(hips, loftRings(pelvisRings, 20), mSuit, { outline: 0.005, name: "pelvis" });
+  addPart(hips, loftRings(pelvisRings, 22), mSuit, { outline: 0.0048, name: "pelvis" });
+
   const torsoRings: RingSpec[] = [
-    { y: -0.02, rx: 0.14, rz: 0.10 },
-    { y: 0.22, rx: 0.13, rz: 0.095 },
-    { y: 0.48, rx: 0.22, rz: 0.125 },
-    { y: 0.56, rx: 0.16, rz: 0.105 },
+    { y: -0.02, rx: 0.124, rz: 0.088 },
+    { y: 0.18, rx: 0.118, rz: 0.084 }, // athletic tapered waist
+    { y: 0.42, rx: 0.198, rz: 0.112 }, // crisp shonen chest/shoulders
+    { y: 0.51, rx: 0.148, rz: 0.096 },
   ];
-  addPart(spine, loftRings(torsoRings, 22), mSuit, { outline: 0.0052, name: "torso" });
-  addPart(neck, sculptLimbGeo(0.12, 0.055, 0.052, 0.058), mSkin, { pos: [0, 0.12, 0], outline: 0.004, name: "neck" });
+  addPart(spine, loftRings(torsoRings, 26), mSuit, { outline: 0.005, name: "torso" });
 
-  // Head with sharp shonen V-jawline
-  const headRings: RingSpec[] = [
-    { y: 0.0, rx: 0.026, rz: 0.030, zOff: 0.032 },
-    { y: 0.06, rx: 0.086, rz: 0.094, zOff: 0.014 },
-    { y: 0.145, rx: 0.114, rz: 0.122 },
-    { y: 0.23, rx: 0.108, rz: 0.116 },
-    { y: 0.30, rx: 0.060, rz: 0.070 },
+  // Flared upturned anime high collar framing neck & jaw cleanly!
+  const collarRings: RingSpec[] = [
+    { y: 0.20, rx: 0.074, rz: 0.074 },
+    { y: 0.26, rx: 0.088, rz: 0.086, yMod: (th) => (Math.sin(th) > 0.35 ? -0.024 * Math.sin(th) : 0.012) },
   ];
-  addPart(head, loftRings(headRings, 24), mFace, { outline: 0.0048, name: "head" });
+  addPart(chest, loftRings(collarRings, 24, { openEnds: true }), mCollar, { outline: 0.0038, name: "collar" });
 
-  // Sculpted multi-lock 3D anime hair (replace curves & lock count to match reference!)
-  const hairCap = new THREE.SphereGeometry(0.124, 18, 14, 0, Math.PI * 2, 0, Math.PI * 0.62);
-  addPart(head, hairCap, mHair, { pos: [0, 0.19, -0.015], outline: 0.0046, name: "hair_cap" });
-  for (let i = 0; i < 8; i++) {
-    const a = (i / 8) * Math.PI * 2;
-    const lock = sculptCurveTube(
-      [
-        [Math.cos(a) * 0.07, 0.26, Math.sin(a) * 0.07 - 0.01],
-        [Math.cos(a) * 0.14, 0.31, Math.sin(a) * 0.13 - 0.01],
-        [Math.cos(a) * 0.18, 0.23, Math.sin(a) * 0.16],
-      ],
-      (t) => [0.034 * (1 - t * 0.85), 0.024 * (1 - t * 0.85)],
-      { tubularSegs: 12, radialSegs: 10, ridgeSharpness: 0.22 }
-    );
-    addPart(head, lock, mHair, { outline: 0.0042, name: `hair_lock_${i}` });
-  }
+  // Slender anatomical anime neck extending cleanly into skull base (ZERO gap under upswept profile jaw!)
+  addPart(neck, sculptLimbGeo(0.165, 0.044, 0.043, 0.052), mSkin, { pos: [0, 0.148, -0.014], outline: 0.0036, name: "neck" });
 
-  // Arms + articulated 5-finger hands (`side: -1 = Right, +1 = Left`)
+  // ---- STUDIO 3D ANIME HEAD (Sharp V-Chin + Upswept Profile Jaw + 3D Nose + 3D Ears + Planar Eyes!) ----
+  buildAnimeHead3D(head, mFace, mSkin, {
+    scale: 1.0,
+    widthScale: 0.95,
+    jawSharpness: 1.04,
+    noseScale: 1.0,
+    earScale: 1.0,
+    outline: 0.0040,
+  });
+
+  // ---- Sculpted Curved S-Wave Multi-Lock 3D Anime Hair (Natural Forehead + Full Back Coverage — NEVER Covers Eyes!) ----
+  // High top-back hair cap tilted slightly back so forehead skin breathes naturally between bangs!
+  const hairBase = new THREE.SphereGeometry(0.102, 22, 16, 0, Math.PI * 2, 0, Math.PI * 0.54);
+  hairBase.scale(0.99, 1.02, 1.08);
+  addPart(head, hairBase, mHair, { pos: [0, 0.174, -0.022], rot: [-0.26, 0, 0], outline: 0.0040, name: "hair_crown" });
+  // Back-of-skull hair cover (zero bald patch from rear 3/4 turnaround!)
+  const hairBack = new THREE.SphereGeometry(0.101, 20, 14, Math.PI * 0.15, Math.PI * 0.70, Math.PI * 0.25, Math.PI * 0.56);
+  addPart(head, hairBack, mHair, { pos: [0, 0.150, -0.014], rot: [0, Math.PI, 0], outline: 0.0038, name: "hair_back" });
+
+  // Back/Crown sweeping anime hair spikes (curved organic S-arcs, varied widths!)
+  const crownSpecs: [number, number, number, number][] = [
+    [-0.08, 0.25, -0.06, 0.036],
+    [-0.04, 0.27, -0.08, 0.040],
+    [0.00, 0.28, -0.09, 0.042],
+    [0.04, 0.27, -0.08, 0.040],
+    [0.08, 0.25, -0.06, 0.036],
+    [-0.10, 0.21, -0.02, 0.032],
+    [0.10, 0.21, -0.02, 0.032],
+    [-0.08, 0.16, -0.07, 0.034],
+    [0.08, 0.16, -0.07, 0.034],
+    [0.00, 0.15, -0.09, 0.038],
+    // Nape hair locks tapering cleanly down back of neck
+    [-0.048, 0.09, -0.085, 0.024],
+    [0.00, 0.08, -0.092, 0.026],
+    [0.048, 0.09, -0.085, 0.024],
+  ];
+  crownSpecs.forEach(([x, y, z, r], i) => {
+    const isNape = i >= 10;
+    const pts: [number, number, number][] = isNape
+      ? [[x * 0.8, y + 0.04, z], [x * 1.0, y - 0.01, z - 0.012], [x * 0.85, y - 0.065, z - 0.006]]
+      : [[x * 0.55, y - 0.02, z * 0.7], [x * 1.45, y + 0.065, z * 1.25], [x * 2.15, y + 0.115, z * 1.55]];
+    const lock = sculptCurveTube(pts, (t) => [r * (1 - t * 0.88), r * 0.62 * (1 - t * 0.88)], {
+      tubularSegs: 14,
+      radialSegs: 10,
+      ridgeSharpness: 0.28,
+    });
+    addPart(head, lock, mHair, { outline: 0.0036, name: `hair_spike_${i}` });
+  });
+
+  // Front framing swept bangs & slim temple side-locks (delicate anime strands framing forehead & eyes cleanly!)
+  const bangSpecs: [number, number, number][][] = [
+    [[-0.062, 0.238, 0.042], [-0.088, 0.195, 0.082], [-0.096, 0.135, 0.076]],
+    [[-0.022, 0.244, 0.048], [-0.032, 0.206, 0.094], [-0.012, 0.156, 0.094]],
+    [[0.024, 0.244, 0.048], [0.038, 0.204, 0.094], [0.056, 0.158, 0.090]],
+    [[0.062, 0.236, 0.042], [0.088, 0.192, 0.082], [0.096, 0.134, 0.074]],
+    // Slim tapered temple side-locks curving gently past cheekbones (leave ears clearly visible!)
+    [[-0.086, 0.205, 0.026], [-0.098, 0.136, 0.056], [-0.078, 0.064, 0.062]],
+    [[0.086, 0.205, 0.026], [0.098, 0.136, 0.056], [0.078, 0.064, 0.062]],
+  ];
+  bangSpecs.forEach((pts, i) => {
+    const bang = sculptCurveTube(pts, (t) => [0.019 * (1 - t * 0.84), 0.011 * (1 - t * 0.84)], {
+      tubularSegs: 12,
+      radialSegs: 8,
+      ridgeSharpness: 0.30,
+    });
+    addPart(head, bang, mHair, { outline: 0.0030, name: `hair_bang_${i}` });
+  });
+
+  // ---- Arms + Articulated 5-Finger Hands (`side: -1 = Right, +1 = Left`) ----
   const makeArm = (side: -1 | 1) => {
     const sh = new THREE.Group();
-    sh.position.set(side * 0.225, 0.22, 0);
+    sh.position.set(side * 0.205, 0.195, 0);
     chest.add(sh);
-    addPart(sh, sculptLimbGeo(0.28, 0.056, 0.052, 0.044), mSuit, { outline: 0.0044 });
+    addPart(sh, new THREE.SphereGeometry(0.052, 14, 12), mSuit, { outline: 0.0042 });
+    addPart(sh, sculptLimbGeo(0.275, 0.048, 0.044, 0.038), mSuit, { outline: 0.0042 });
     const el = new THREE.Group();
-    el.position.set(0, -0.28, 0);
+    el.position.set(0, -0.275, 0);
     sh.add(el);
-    addPart(el, sculptLimbGeo(0.26, 0.045, 0.042, 0.034), mSuit, { outline: 0.0042 });
+    addPart(el, sculptLimbGeo(0.255, 0.039, 0.036, 0.029), mSuit, { outline: 0.0040 });
     const wr = new THREE.Group();
-    wr.position.set(0, -0.26, 0);
+    wr.position.set(0, -0.255, 0);
     el.add(wr);
-    const hand = buildHand3D(side, mSkin, { scale: 1.0, claws: !!opts?.claws });
+    const hand = buildHand3D(side, mSkin, { scale: 0.96, claws: !!opts?.claws });
     wr.add(hand.root);
     return { sh, el, wr, hand };
   };
   const armR = makeArm(-1);
   const armL = makeArm(1);
 
-  // Legs
+  // ---- Sleek Long Shonen Legs + Sculpted Footwear ----
   const makeLeg = (side: -1 | 1) => {
     const th = new THREE.Group();
-    th.position.set(side * 0.105, -0.02, 0);
+    th.position.set(side * 0.096, -0.02, 0);
     hips.add(th);
-    addPart(th, sculptLimbGeo(0.44, 0.078, 0.072, 0.056), mSuit, { outline: 0.0048 });
+    addPart(th, sculptLimbGeo(0.45, 0.070, 0.062, 0.048), mSuit, { outline: 0.0046 });
     const kn = new THREE.Group();
-    kn.position.set(0, -0.44, 0);
+    kn.position.set(0, -0.45, 0);
     th.add(kn);
-    addPart(kn, sculptLimbGeo(0.44, 0.058, 0.054, 0.042), mSuit, { outline: 0.0046 });
+    addPart(kn, sculptLimbGeo(0.45, 0.050, 0.047, 0.036), mSuit, { outline: 0.0044 });
     const an = new THREE.Group();
-    an.position.set(0, -0.44, 0);
+    an.position.set(0, -0.45, 0);
     kn.add(an);
-    addPart(an, new THREE.BoxGeometry(0.095, 0.08, 0.22), mSuit, { pos: [0, -0.04, 0.045], outline: 0.0044 });
+    const bootRings: RingSpec[] = [
+      { y: -0.072, rx: 0.048, rz: 0.112, zOff: 0.038 },
+      { y: -0.032, rx: 0.045, rz: 0.096, zOff: 0.026 },
+      { y: 0.030, rx: 0.041, rz: 0.046, zOff: 0.002 },
+    ];
+    addPart(an, loftRings(bootRings, 18), mCollar, { outline: 0.0042 });
     return { th, kn, an };
   };
   const legR = makeLeg(-1);
@@ -231,23 +268,23 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
   const { overlay, boneCount } = attachBoneVisualizer(joints);
 
   const setPose = (pose: string, t = 0) => {
-    const breath = Math.sin(t * 2.4) * 0.018;
-    hips.position.set(0, 0.98 + breath, 0);
+    const breath = Math.sin(t * 2.4) * 0.016;
+    hips.position.set(0, 0.99 + breath, 0);
     hips.rotation.set(0, 0, 0);
     spine.rotation.set(0, 0, 0);
     chest.rotation.set(0, 0, 0);
     head.rotation.set(0, Math.sin(t * 1.1) * 0.05, 0);
-    legL.th.rotation.set(0, 0, 0.04);
-    legR.th.rotation.set(0, 0, -0.04);
+    legL.th.rotation.set(0, 0, 0.045);
+    legR.th.rotation.set(0, 0, -0.045);
     legL.kn.rotation.set(0, 0, 0);
     legR.kn.rotation.set(0, 0, 0);
 
     if (pose === "power_point") {
-      armR.sh.rotation.set(-1.35, 0.12, -0.24);
-      armR.el.rotation.set(-0.28, 0, 0);
+      armR.sh.rotation.set(-1.35, 0.12, -0.22);
+      armR.el.rotation.set(-0.26, 0, 0);
       armR.hand.setGesture("point_up");
-      armL.sh.rotation.set(0.12, 0, 0.26);
-      armL.el.rotation.set(-0.42, 0, 0);
+      armL.sh.rotation.set(0.12, 0, 0.24);
+      armL.el.rotation.set(-0.38, 0, 0);
       armL.hand.setGesture("fist");
     } else if (pose === "a_pose") {
       armR.sh.rotation.set(0, 0, -0.45);
@@ -257,11 +294,11 @@ export function buildGuestRig3D(opts?: { intense?: boolean; claws?: boolean }): 
       armL.el.rotation.set(0, 0, 0);
       armL.hand.setGesture("open");
     } else {
-      armR.sh.rotation.set(0.06, 0, -0.16);
-      armR.el.rotation.set(-0.22, 0, 0);
+      armR.sh.rotation.set(0.06, 0, -0.15);
+      armR.el.rotation.set(-0.20, 0, 0);
       armR.hand.setGesture("relaxed");
-      armL.sh.rotation.set(0.06, 0, 0.16);
-      armL.el.rotation.set(-0.22, 0, 0);
+      armL.sh.rotation.set(0.06, 0, 0.15);
+      armL.el.rotation.set(-0.20, 0, 0);
       armL.hand.setGesture("relaxed");
     }
   };
