@@ -1,6 +1,9 @@
 {
-  "mood": "shonen_battle",
-  "bpm": 126,
+  "bpm": 124,
+  "scale_root_hz": 73.42,
+  "scale_intervals": [0, 2, 3, 5, 7, 8, 10, 12],
+  "cutoff_hz": 1800.0,
+  "drums": true,
   "fps": 30,
   "target_lufs": -14.5,
   "true_peak_db": -1.1,
@@ -11,20 +14,6 @@
     "twist_silence_end_s": 33.2,
     "climax_end_s": 54.0
   },
-  "sfx_files": {
-    "impact": "sfx_power_impact.mp3",
-    "hum": "sfx_power_hum.mp3",
-    "boom": "sfx_catastrophe_boom.mp3",
-    "trigger": "sfx_power_trigger.mp3",
-    "finale": "sfx_twist_finale.mp3"
-  },
-  "cues": [
-    { "t": 0.08, "kind": "file", "file": "hum", "dur": 2.4, "gain": 0.36, "label": "Opening power discovery hum" },
-    { "t": 2.50, "kind": "file", "file": "impact", "dur": 2.2, "gain": 0.72, "label": "First power consequence impact" },
-    { "t": 9.50, "kind": "sub_drop", "dur": 1.3, "gain": 0.56, "label": "Guest character / power reveal bass drop" },
-    { "t": 24.0, "kind": "file", "file": "boom", "dur": 3.0, "gain": 0.84, "label": "Mid-video escalation catastrophe" },
-    { "t": 31.05, "kind": "whoosh", "dur": 0.35, "gain": 0.28, "label": "Twist question push-in whoosh" },
-    { "t": 33.25, "kind": "sub_drop", "dur": 1.1, "gain": 0.48, "label": "Canon drawback reveal bass hit" },
-    { "t": 54.0, "kind": "file", "file": "finale", "dur": 3.2, "gain": 0.68, "label": "Closing twist sting" }
-  ]
+  "sfx_files": {},
+  "cues": []
 }

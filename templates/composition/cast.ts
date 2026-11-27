@@ -1,12 +1,13 @@
-// Voidmetric v3.0 3D Cast Controller — Independent Contact Shadows per Actor + Live Expressions + Universal Power Color!
+// Voidmetric v4.0 Custom 3D Cast Controller (ZERO Hardcoded Canned Clips!)
+// Author bespoke episode-specific acting on each character's real 26-bone skeleton via `createPose` + `applyPoseSnapshot`.
 import * as THREE from "three";
 import { NOINK } from "../bridge/ink";
 import { blobMaterial } from "../bridge/cardshade";
 import { AnimeRig3D } from "./rig3d_core";
 import { buildMCRig3D } from "./rig3d_mc";
 import { buildGuestRig3D } from "./rig3d_guest";
-import { applyAnimeMotion } from "./anim3d_core";
-import { EPISODE_POWER_COLOR, FPS, SHOTS, Z_HOME, Z_VOID, clamp01 } from "./story";
+import { applyPoseSnapshot, createPose } from "./anim3d_core";
+import { EPISODE_POWER_COLOR, FPS, SHOTS, Z_STAGE_A, Z_STAGE_B, clamp01 } from "./story";
 
 const CARD_GEO = new THREE.PlaneGeometry(1, 1);
 
@@ -45,14 +46,13 @@ export class EpisodeCast {
   private blobs: Map<AnimeRig3D, THREE.Mesh>;
 
   constructor(parent: THREE.Object3D) {
-    this.mc = buildMCRig3D({ powerEyes: true, powerColor: EPISODE_POWER_COLOR });
+    this.mc = buildMCRig3D({ powerEyes: false, powerColor: EPISODE_POWER_COLOR });
     this.guest = buildGuestRig3D({ intense: false });
     this.mc.root.visible = false;
     this.guest.root.visible = false;
     parent.add(this.mc.root);
     parent.add(this.guest.root);
 
-    // Every actor gets its own independent grounded contact shadow blob (works cleanly when multiple actors share a shot!)
     this.blobs = new Map<AnimeRig3D, THREE.Mesh>([
       [this.mc, makeActorBlob(parent)],
       [this.guest, makeActorBlob(parent)],
@@ -81,15 +81,47 @@ export class EpisodeCast {
     this.guest.root.visible = false;
     for (const b of this.blobs.values()) b.visible = false;
 
+    const br = Math.sin(t * 2.5) * 0.02;
     if (shotId === 1) {
-      this.mc.setAction?.("wake_discover", p, t);
-      this.place(this.mc, Z_HOME, 0, 0, 0.14, 1.0, true);
+      applyPoseSnapshot(
+        this.mc,
+        createPose(
+          0.94 + Math.sin(t * 2.2) * 0.01,
+          {
+            spine: [0.02, -0.06, 0],
+            chest: [br, -0.04, 0],
+            head: [0.02, 0.08 + Math.sin(t * 1.1) * 0.04, 0],
+            shoulderL: [0.06, 0, 0.18],
+            elbowL: [-0.26, 0, 0],
+            shoulderR: [0.08, 0, -0.18],
+            elbowR: [-0.24, 0, 0],
+          },
+          { handL: "relaxed", handR: "relaxed" }
+        )
+      );
+      this.mc.setExpr?.("normal", t);
+      this.place(this.mc, Z_STAGE_A, 0, 0, 0.14, 1.0, true);
     } else {
-      applyAnimeMotion(this.guest, "power_charge", p, t, 0.99);
-      // Keep talk=false (omit 3rd arg!) during off-screen narrator voiceover — only pass true if THIS character is speaking!
-      this.guest.setExpr?.(p > 0.55 ? "shout" : "smirk", t);
-      this.guest.setGaze?.(0, 0.1);
-      this.place(this.guest, Z_VOID, 0.0, 0, -0.1 + p * 0.2, 1.02, true);
+      applyPoseSnapshot(
+        this.guest,
+        createPose(
+          0.99 + Math.sin(t * 2.4) * 0.012,
+          {
+            spine: [0.02, -0.08, 0],
+            chest: [br, -0.06, 0],
+            head: [0.01, 0.10, 0],
+            shoulderL: [0.06, 0, 0.20],
+            elbowL: [-0.28, 0, 0],
+            shoulderR: [0.08, 0, -0.22],
+            elbowR: [-0.26, 0, 0],
+          },
+          { handL: "relaxed", handR: "relaxed" }
+        )
+      );
+      // Keep talk=false (omit 3rd arg!) during off-screen narrator voiceover!
+      this.guest.setExpr?.(p > 0.55 ? "intense" : "smirk", t);
+      this.guest.setGaze?.(0, 0.05);
+      this.place(this.guest, Z_STAGE_B, 0, 0, -0.1 + p * 0.2, 1.02, true);
     }
   }
 }

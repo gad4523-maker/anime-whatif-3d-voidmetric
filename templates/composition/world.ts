@@ -1,22 +1,14 @@
-// Voidmetric v3.2 Custom-First Painted 3D World & Genre-Appropriate VFX!
-// IMPORTANT (v3.2 Custom-First Rule — Hardcoded Presets Are OPTIONAL!):
-//   - Build ANY custom textured anime location the episode needs directly here using exported primitives from
-//     `env3d_core.ts` (`makeEnvTex`, `celTex`, `makePaintedMat`, `hash01`) — e.g. pirate ship deck, Shibuya
-//     subway, brick rooftops, Stone-World straw village, feudal dojo, dungeon hall, spaceship bridge!
-//     The 9 preset builders (`buildBedroom`, `buildClassroom`, `buildScienceLab`, etc.) are OPTIONAL shortcuts.
-//   - Author ANY custom 3D GLSL VFX or physical FX (steam, smoke, rain, elemental ribbons, time-stop, slashes,
-//     sparks) directly in `vfx3d.ts` or here using `createCustomVFXMat`, `NOISE_GLSL`, `setNoInkTree`, and
-//     `getGlowSpriteTex`! The 9 preset VFX classes are OPTIONAL — and for `grounded_genius` anime, REMOVE
-//     EnergyOrb3D / EnergyAura3D / buildCosmicRealm completely (zero magic halos on non-magic anime!).
+// Voidmetric v4.0 Custom-Only Painted 3D World & Bespoke VFX Starter (ZERO Hardcoded Rooms or VFX Presets!)
+// Build EVERY location, painted texture (`makePaintedMat`/`makeEnvTex`/`hash01`), custom lighting mood (`makeLightPreset`),
+// and bespoke 3D shader/particle effect (`createCustomVFXMat`/`NOISE_GLSL`/`setNoInkTree`/`getGlowSpriteTex`) uniquely for each episode!
 import * as THREE from "three";
 import { TONE, CHAR, untone } from "../bridge/shade";
 import { NOINK } from "../bridge/ink";
-import { EPISODE_LIGHTS, EpisodeLightName } from "./lights";
-import { EPISODE_POWER_COLOR, EPISODE_POWER_CORE, FPS, Z_HOME, Z_VOID, camAt, lightForShot } from "./story";
+import { EpisodeLightName, getEpisodeLight } from "./lights";
+import { FPS, Z_STAGE_A, Z_STAGE_B, camAt, lightForShot } from "./story";
 import { EpisodeCast } from "./cast";
 import { ANIME_LIGHT } from "./rig3d_core";
-import { EnergyAura3D, EnergyOrb3D } from "./vfx3d";
-import { buildCosmicRealm, buildModernRoom, buildStarfield } from "./env3d_core";
+import { hash01, makePaintedMat } from "./env3d_core";
 
 const rad = (d: number) => (d * Math.PI) / 180;
 
@@ -36,9 +28,7 @@ export class EpisodeWorld {
     sunDir: THREE.IUniform<THREE.Vector3>;
     sunDisc: THREE.IUniform<THREE.Color>;
   };
-  private fog = new THREE.Fog("#b8d0ec", 26, 320);
-  private handOrb: EnergyOrb3D;
-  private guestAura: EnergyAura3D;
+  private fog = new THREE.Fog("#d0e6fc", 24, 280);
 
   constructor() {
     this.cast = new EpisodeCast(this.root);
@@ -49,7 +39,7 @@ export class EpisodeWorld {
       c2: { value: new THREE.Color() },
       c3: { value: new THREE.Color() },
       c4: { value: new THREE.Color() },
-      e: { value: [0, 4, 10, 22, 45] },
+      e: { value: [0, 3, 7, 14, 26] },
       sunDir: { value: new THREE.Vector3(0.4, 0.7, 0.5) },
       sunDisc: { value: new THREE.Color("#000000") },
     };
@@ -68,7 +58,6 @@ export class EpisodeWorld {
           col = mix(col, c2, smoothstep(e[1], e[2], deg));
           col = mix(col, c3, smoothstep(e[2], e[3], deg));
           col = mix(col, c4, smoothstep(e[3], e[4], deg));
-          // Crisp glowing HDR sun disc + radial atmospheric halo (feeds 6-level Mipmap Bloom!)
           float sunLum = dot(sunDisc, vec3(0.299, 0.587, 0.114));
           if (sunLum > 0.01) {
             float mu = max(dot(d, normalize(sunDir)), 0.0);
@@ -84,30 +73,38 @@ export class EpisodeWorld {
     this.sky.layers.set(NOINK);
     this.root.add(this.sky);
 
-    this.hemi = new THREE.HemisphereLight("#dcecff", "#b49a78", 0.6);
+    this.hemi = new THREE.HemisphereLight("#e2f0ff", "#baa282", 0.64);
     this.root.add(this.hemi);
-    this.sun = new THREE.DirectionalLight("#fff3e0", 2.8);
+    this.sun = new THREE.DirectionalLight("#fff4df", 2.8);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
     this.root.add(this.sun);
     this.root.add(this.sun.target);
 
-    // Rich cel-shaded 3D environments built instantaneously from `env3d_core.ts`!
-    this.root.add(buildModernRoom(Z_HOME));
-    this.root.add(buildCosmicRealm(Z_VOID, { accentHex: EPISODE_POWER_COLOR }));
-    this.root.add(buildStarfield(Z_VOID));
-
-    // Universal color-parameterized 3D GLSL VFX (adapts in 1 line to ANY anime power palette!)
-    this.handOrb = new EnergyOrb3D(0.18, { primary: EPISODE_POWER_COLOR, core: EPISODE_POWER_CORE, darkCore: false });
-    this.root.add(this.handOrb.group);
-
-    this.guestAura = new EnergyAura3D(2.45, 0.84, EPISODE_POWER_COLOR, EPISODE_POWER_CORE);
-    this.guestAura.group.position.set(Z_VOID, 0, 0);
-    this.root.add(this.guestAura.group);
+    // Minimal painted ground pads for the blank scaffold — replace completely with your episode's custom 3D sets!
+    const mStarterGround = makePaintedMat(
+      512,
+      512,
+      (ctx, w, h) => {
+        ctx.fillStyle = "#dfd7ca";
+        ctx.fillRect(0, 0, w, h);
+        for (let i = 0; i < 420; i++) {
+          ctx.fillStyle = i % 2 ? "rgba(255,252,246,0.16)" : "rgba(128,114,98,0.10)";
+          ctx.fillRect(hash01(i * 7 + 1) * w, hash01(i * 11 + 3) * h, 18, 10);
+        }
+      },
+      { repeatX: 4, repeatY: 4 }
+    );
+    for (const zx of [Z_STAGE_A, Z_STAGE_B]) {
+      const ground = new THREE.Mesh(new THREE.BoxGeometry(16, 0.4, 16), mStarterGround);
+      ground.position.set(zx, -0.2, 0);
+      ground.receiveShadow = true;
+      this.root.add(ground);
+    }
   }
 
   private applyLight(name: EpisodeLightName, cam: THREE.PerspectiveCamera, look: THREE.Vector3, scene: THREE.Scene) {
-    const L = EPISODE_LIGHTS[name];
+    const L = getEpisodeLight(name);
     TONE.uLitCol.value.set(...L.lit);
     TONE.uShadeCol.value.set(...L.shade);
     TONE.uShadeLift.value.set(...L.lift);
@@ -131,7 +128,7 @@ export class EpisodeWorld {
     untone(L.fog, this.fog.color);
     this.fog.near = L.fogNear;
     this.fog.far = L.fogFar;
-    scene.fog = name === "space" ? null : this.fog;
+    scene.fog = L.fogFar > 0 ? this.fog : null;
 
     const fwd = new THREE.Vector3().subVectors(look, cam.position);
     fwd.y = 0;
@@ -157,7 +154,6 @@ export class EpisodeWorld {
     const camRight = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), toCam).normalize();
     const heroLight = toCam.clone().multiplyScalar(0.72).addScaledVector(camRight, 0.46).add(new THREE.Vector3(0, 0.56, 0)).normalize();
     ANIME_LIGHT.uLightDir.value.copy(sDir).lerp(heroLight, 0.72).normalize();
-    // Sync full character-to-world color temperature, ambient shadows & rim glow so rigs live INSIDE every lighting mood!
     ANIME_LIGHT.uKeyColor.value.setRGB(...L.charTint);
     ANIME_LIGHT.uAmbientTint.value.setRGB(...L.charAmbient);
     ANIME_LIGHT.uRimTint.value.set(L.charRimTint);
@@ -166,7 +162,7 @@ export class EpisodeWorld {
   }
 
   update(shotId: number, f: number, cam: THREE.PerspectiveCamera, scene: THREE.Scene) {
-    const t = f / FPS;
+    const _t = f / FPS;
     const C = camAt(shotId, f);
     cam.position.set(...C.pos);
     cam.up.set(0, 1, 0);
@@ -179,28 +175,8 @@ export class EpisodeWorld {
 
     this.sky.position.copy(cam.position);
     const L = this.applyLight(lightForShot(shotId, f), cam, look, scene);
-
-    // 1) Update 3D rigs FIRST & refresh world matrices so VFX lock onto REAL 3D hand bones!
     this.cast.update(shotId, f, cam, L.actorShadow);
     this.root.updateMatrixWorld(true);
-
-    // 2) Bone-locked VFX attachment (tracks MC left wrist in shot 1, Guest aura in shot 2!)
-    if (shotId === 1) {
-      const targetBone = this.cast.mc.joints.wristL;
-      const worldPos = new THREE.Vector3(0, -0.05, 0);
-      targetBone.localToWorld(worldPos);
-      const toCam = new THREE.Vector3().subVectors(cam.position, worldPos).normalize();
-      worldPos.addScaledVector(toCam, 0.13);
-      worldPos.y += 0.16;
-      this.handOrb.group.position.copy(worldPos);
-      this.handOrb.update(t, 1.0, 0.65);
-      this.guestAura.update(t, 0.0, 1.0);
-    } else {
-      this.handOrb.update(t, 0.0, 0.0);
-      this.guestAura.group.position.copy(this.cast.guest.root.position);
-      this.guestAura.update(t, 1.0, 1.0);
-    }
-
     return look;
   }
 }

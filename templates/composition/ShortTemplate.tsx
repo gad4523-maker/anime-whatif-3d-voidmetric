@@ -14,7 +14,7 @@ import { InkPass } from "../bridge/ink";
 import { GrainEffect, LensBlur } from "../bridge/lensblur";
 import { WhipBlur } from "../bridge/whipblur";
 import { GradeEffect } from "../bridge/grade";
-import { EPISODE_LIGHTS } from "./lights";
+import { getEpisodeLight } from "./lights";
 import { EpisodeWorld } from "./world";
 import { HIT_STOPS, IMPACT_FRAMES, SPEEDLINES, TOTAL, camAt, dofAt, flashAt, layersAt, lightForShot } from "./story";
 import { computeWhipVelUV } from "./cam3d_core";
@@ -61,7 +61,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       bloom: makeBloom(),
       whip: new WhipBlur(),
       tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
-      grade: new GradeEffect(EPISODE_LIGHTS.morning.grade, 1.0),
+      grade: new GradeEffect(getEpisodeLight("base").grade, 1.0),
       grain: new GrainEffect({ amount: 0.016, cellPx: 1.5 }),
     }),
     [camera, scene]
@@ -94,7 +94,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   fx.whip.vel.set(wx, wy);
 
   const lName = lightForShot(id, animF);
-  fx.grade.set(EPISODE_LIGHTS[lName].grade);
+  fx.grade.set(getEpisodeLight(lName).grade);
   fx.grain.seed = animF;
 
   const passes = useMemo(

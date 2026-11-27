@@ -1,12 +1,8 @@
-# Voidmetric v3.0 Universal 48 kHz / 24-bit Studio Master Mix Engine (Zero Hardcoded Episode Timings!)
-# Data-driven via `audio_cues.json` + automatic duration from `voice/words.json`!
-# Supports 5 selectable anime score moods:
-#   - `shonen_battle`   (D minor, 126 BPM: heroic ostinato + driving drums + dark climax)
-#   - `dark_cosmic`     (C minor, 118 BPM: deep ominous sub-drones + haunting high chords)
-#   - `mystery_science` (E minor, 122 BPM: crisp plucked synth arps + investigative pulse)
-#   - `cyber_thriller`  (F# minor, 132 BPM: sharp pulsing bass + taut hi-hat percussion)
-#   - `tragic_twist`    (A minor, 108 BPM: emotive minor strings + slow booming taiko/sub)
-# Layers 100% untouched `voice/voice.wav` + custom SFX + dynamic score mastered to -14.5 LUFS / <= -1.1 dBTP!
+# Voidmetric v4.0 Open Parametric 48 kHz / 24-bit Studio Master Mix Engine (ZERO Hardcoded Mood Dropdowns!)
+# Data-driven via `audio_cues.json` + automatic duration from `voice/words.json`:
+#   - Supply a custom `music_wav` file, OR specify custom musical parameters (`scale_root_hz`, `scale_intervals`,
+#     `cutoff_hz`, `drums`, `bpm`, `acts`) to synthesize a bespoke procedural score for the episode!
+#   - Layers 100% untouched `voice/voice.wav` + custom SFX + score mastered to -14.5 LUFS / <= -1.1 dBTP!
 import json
 import math
 import os
@@ -28,14 +24,6 @@ VOICE_WAV = os.path.join(PROJ, "voice", "voice.wav")
 WORDS_JSON = os.path.join(PROJ, "voice", "words.json")
 CUES_JSON = os.path.join(HERE, "audio_cues.json")
 OUT_MIX_WAV = os.path.join(HERE, "mix.wav")
-
-MOOD_SCALES = {
-    "shonen_battle":   {"root": 73.42, "intervals": [0, 2, 3, 5, 7, 8, 10, 12], "cutoff": 1900.0, "drums": True},
-    "dark_cosmic":     {"root": 65.41, "intervals": [0, 1, 3, 5, 7, 8, 10, 12], "cutoff": 1150.0, "drums": True},
-    "mystery_science": {"root": 82.41, "intervals": [0, 2, 3, 5, 7, 9, 10, 12], "cutoff": 2400.0, "drums": True},
-    "cyber_thriller":  {"root": 92.50, "intervals": [0, 2, 3, 6, 7, 8, 11, 12], "cutoff": 2650.0, "drums": True},
-    "tragic_twist":    {"root": 55.00, "intervals": [0, 2, 3, 5, 7, 8, 10, 12], "cutoff": 1350.0, "drums": False},
-}
 
 
 def semi(root_hz: float, st_offset: int) -> float:
@@ -120,9 +108,19 @@ def synth_whiz(seed=1):
 
 
 def synth_anime_score(dur: float, n_samples: int, cfg: dict):
-    mood_name = cfg.get("mood", "shonen_battle")
-    mood = MOOD_SCALES.get(mood_name, MOOD_SCALES["shonen_battle"])
-    bpm = float(cfg.get("bpm", 126.0))
+    music_wav = cfg.get("music_wav")
+    if music_wav:
+        mp = os.path.join(HERE, music_wav) if not os.path.isabs(music_wav) else music_wav
+        if os.path.exists(mp):
+            raw = load_audio_48k(mp)
+            buf = np.zeros((2, n_samples), dtype=np.float64)
+            buf[:, : min(n_samples, raw.shape[1])] = raw[:, : min(n_samples, raw.shape[1])]
+            return buf
+    root = float(cfg.get("scale_root_hz", 73.42))
+    iv = [int(x) for x in cfg.get("scale_intervals", [0, 2, 3, 5, 7, 8, 10, 12])]
+    cutoff = float(cfg.get("cutoff_hz", 1800.0))
+    use_drums = bool(cfg.get("drums", True))
+    bpm = float(cfg.get("bpm", 124.0))
     acts = cfg.get("acts", {})
 
     t_hook = min(dur * 0.22, float(acts.get("hook_end_s", dur * 0.16)))
@@ -131,15 +129,13 @@ def synth_anime_score(dur: float, n_samples: int, cfg: dict):
     t_sil_b = float(acts.get("twist_silence_end_s", min(dur - 4.0, t_sil_a + 2.2)))
     t_climax = min(dur - 2.0, float(acts.get("climax_end_s", dur * 0.86)))
 
-    r = rng(404)
+    r = rng(int(cfg.get("seed", 404)))
     buf = np.zeros((2, n_samples), dtype=np.float64)
     step = (60.0 / bpm) / 2.0
-    root = mood["root"]
-    iv = mood["intervals"]
     notes = [semi(root, s) for s in iv]
     hi = [semi(root * 2, s) for s in iv]
 
-    def add_note(freq, t0, d, amp=0.18, pan_p=0.0, bright=mood["cutoff"], decay=0.22):
+    def add_note(freq, t0, d, amp=0.18, pan_p=0.0, bright=cutoff, decay=0.22):
         n = ns(d)
         t = np.arange(n) / SR
         s = 0.55 * np.sin(TAU * freq * t) + 0.28 * np.sin(TAU * freq * 2.002 * t) + 0.14 * np.sin(TAU * freq * 3.005 * t)
@@ -182,7 +178,7 @@ def synth_anime_score(dur: float, n_samples: int, cfg: dict):
     arp1 = [hi[0], hi[4], hi[7], hi[2] * 2, hi[4], hi[7], hi[1], hi[6]]
     t_cur, k = 0.0, 0
     while t_cur < t_hook:
-        add_note(arp1[k % len(arp1)], t_cur, 0.25, amp=0.14, pan_p=0.28 * np.sin(k), bright=mood["cutoff"], decay=0.16)
+        add_note(arp1[k % len(arp1)], t_cur, 0.25, amp=0.14, pan_p=0.28 * np.sin(k), bright=cutoff, decay=0.16)
         if k % 4 == 0:
             add_note(notes[0], t_cur, 0.52, amp=0.21, bright=440, decay=0.34)
         t_cur += step
@@ -196,7 +192,7 @@ def synth_anime_score(dur: float, n_samples: int, cfg: dict):
     while t_cur < t_esc:
         add_note(bass_prog[(k // 8) % len(bass_prog)], t_cur, 0.22, amp=0.27, bright=680, decay=0.16)
         add_note(ostinato[k % len(ostinato)], t_cur, 0.20, amp=0.16, pan_p=-0.34 if k % 2 else 0.34, decay=0.14)
-        if mood["drums"]:
+        if use_drums:
             if k % 4 == 0 or k % 8 == 6:
                 add_kick(t_cur, amp=0.35)
             if k % 4 == 2:
@@ -211,7 +207,7 @@ def synth_anime_score(dur: float, n_samples: int, cfg: dict):
     t_cur, k = t_sil_b + 0.08, 0
     while t_cur < t_climax:
         add_note(notes[0] if k % 4 == 0 else notes[4], t_cur, 0.18, amp=0.21 if k % 2 == 0 else 0.12, bright=560, decay=0.12)
-        if mood["drums"] and t_cur > (t_sil_b + t_climax) * 0.45 and k % 2 == 0:
+        if use_drums and t_cur > (t_sil_b + t_climax) * 0.45 and k % 2 == 0:
             add_kick(t_cur, amp=0.28)
         t_cur += step
         k += 1
@@ -251,7 +247,7 @@ def build_sfx_stem(n_samples: int, cfg: dict):
                 loaded[key] = synth_sub_drop(1.1) if "boom" in key else synth_whoosh(0.5)
         return loaded[key]
 
-    cue_lines = [f"# Episode Audio Cue Sheet (Mood: `{cfg.get('mood', 'shonen_battle')}` @ `{cfg.get('bpm', 126)} BPM`)\n"]
+    cue_lines = [f"# Episode Audio Cue Sheet (`{cfg.get('bpm', 124)} BPM`, root `{cfg.get('scale_root_hz', 73.42)} Hz`)\n"]
     fps = int(cfg.get("fps", 30))
     for i, c in enumerate(cfg.get("cues", [])):
         t0 = float(c["t"])

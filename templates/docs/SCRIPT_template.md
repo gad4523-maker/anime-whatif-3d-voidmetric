@@ -4,14 +4,11 @@
 > [!IMPORTANT]
 > Every factual claim below must trace directly back to `LORE_FACT_SHEET.md` and pass the Adversarial Lore Audit before voiceover or 3D rigging begins. Avoid stale repetitive gimmicks (like inserting a robotic standalone `"Wrong."` in the middle — earn the turn naturally through a shocking visual consequence!).
 
-## Beat Formula (Proven Voidmetric ~60s Viral Short Arc)
-1. **Immediate Visual Hook (`0–9 s`):** Wake up in an everyday morning setting and accidentally trigger the power on an ordinary object.
-2. **Iconic Character & Rule Reveal (`9–16 s`):** Cut to the canon anime character demonstrating the ability; state the exact canon mechanic cleanly.
-3. **Escalation Montage (`16–30 s`):** 3 escalating real-world tests (environment → defense/combat → accidental catastrophic escalation).
-4. **Natural Earned Turn / Dead-Silence Question (`30–34 s`):** Music cuts dead silent as the MC reacts in shock to the unintended fallout (*"Wait — why did [tiny action] do that?"*).
-5. **Canon Catch / Physics & Mindset Trap (`34–47 s`):** Explain the verified canon drawback, backlash, or condition that turns the power against a human user.
-6. **Canon Proof + Missing Safety Net (`47–59 s`):** Show a canon feat proving even the original master struggled or needed a safeguard/partner.
-7. **Haunting Callback Punchline (`59–64 s`):** One tiny slip on Earth — and no canon safety net exists here.
+## Custom Story Structure (Author Fresh For This Power & Twist!)
+Design a natural, high-retention ~52–62 s (`150–175` words) narrative tailored uniquely to this character's canon rules and real-world twist — never force a cookie-cutter formula or repetitive gimmick lines:
+- **Opening 3-Second Hook:** Immediate kinetic visual consequence in the first `2.8 s` (no slow intro).
+- **Canon Rule & Escalation:** Verify exact canon mechanics and escalate consequences organically.
+- **Earned Twist & Hidden Catch:** Pivot naturally into the canon limit/drawback with a visual mechanism reveal and haunting final punchline.
 
 ---
 
