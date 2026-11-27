@@ -1,0 +1,27 @@
+# Dependencies & caches
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+remotion-tmp/
+puppeteer_dev_chrome_profile-*/
+remotion-webpack-bundle-*/
+
+# Uncompressed renders, raw frame dumps & intermediate audio stems
+out/
+frames/
+stills*/
+qa*/
+*.wav
+*_silent.mp4
+*2K.mp4
+*2k.mp4
+
+# Explicitly keep the compressed Beerus gold-standard reference clip & sheets!
+!references/beerus-gold-standard/beerus_3d_ref_compressed.mp4
+!references/beerus-gold-standard/*.jpg
+
+# OS noise
+.DS_Store
+Thumbs.db
+desktop.ini
