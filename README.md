@@ -37,6 +37,15 @@ Start at Stage 1 & Stage 2:
 
 ---
 
+## Super-Fast Cloud GPU Rendering With Google Colab Pro (`L4` / `T4` GPU)
+
+Want **full 2K (`1440×2560`) or 1080p in ~2–4 minutes** without waiting on Gemini Tasks' 2-vCPU sandbox?
+1. Let **Gemini Tasks** finish Stages 1–6 (Fact-Check, Script, 3D Rigs, World, VFX, Audio, Subtitles, 16-frame LookCheck) and zip `workspace-remotion/`.
+2. Open [`colab/Voidmetric_GPU_Render.ipynb`](colab/Voidmetric_GPU_Render.ipynb) in **Google Colab Pro**, choose **`L4 GPU`** (best) or **`T4 GPU`** (cheapest fast option) — skip `A100` & `TPUs`.
+3. Upload the `.zip` (or pull from GitHub/Drive) and click **Run All** — it auto-tests `--gl=angle-egl`, upgrades `MSAA` to `4`, renders in ~2–4 min, runs `short_qa.py`, displays a preview contact sheet, and saves the finished MP4 directly to Google Drive!
+
+---
+
 ## Gold-Standard Reference Included
 
 See [`references/beerus-gold-standard/`](references/beerus-gold-standard/):

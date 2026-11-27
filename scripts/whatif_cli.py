@@ -686,7 +686,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_rc.add_argument("--out-video", required=True, help="Destination final MP4 path")
     p_rc.add_argument("--tmp-dir", default=default_tmp_dir(), help="Temp directory cleaned between chunks")
     p_rc.add_argument("--crf", type=int, default=17, help="H.264 CRF quality (default 17)")
-    p_rc.add_argument("--gl", default="swangle", choices=["swangle", "angle", "swiftshader"], help="Chromium WebGL renderer (swangle for CPU cloud)")
+    p_rc.add_argument("--gl", default="swangle", choices=["swangle", "angle", "angle-egl", "egl", "swiftshader"], help="Chromium WebGL renderer (swangle for CPU cloud, angle-egl for Colab L4/T4 GPU)")
     p_rc.add_argument("--concurrency", type=int, default=1, help="Browser concurrency (MUST be 1 on 6.9 GiB / 0 swap cloud boxes)")
     p_rc.add_argument("--keep-chunks", action="store_true", help="Keep intermediate chunk MP4s after concat")
     p_rc.add_argument("--force", action="store_true", help="Re-render existing cached chunks")

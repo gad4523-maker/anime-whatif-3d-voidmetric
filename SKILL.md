@@ -18,8 +18,9 @@ description: >-
 
 Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** in the proven **Voidmetric Gold-Standard Style** — established by *"What If You Woke Up With Beerus's Destruction Power?"* (`references/beerus-gold-standard/`).
 
-Supports **two verified execution profiles**:
+Supports **three verified execution profiles**:
 - **`cloud-1080p` (100% Gemini Tasks / Linux CPU-only Sandbox — `1080×1920` @ `30 fps`):** Bootstraps a self-contained Remotion + Three.js workspace (`templates/starter-remotion/`), uses `--gl=swangle --concurrency=1`, `EFFECT_MSAA = 0`, `/tmp/remotion-tmp`, and resumable 300-frame chunked rendering (`whatif_cli.py render-cloud`) so 2 vCPUs + 6.9 GiB RAM / 0 swap NEVER crashes or OOMs.
+- **`colab-gpu` (Gemini Tasks Stages 1–6 + Google Colab Pro `L4` / `T4` GPU Render — `1080p` or full `2K 1440×2560` in ~2–4 min):** Export the verified Remotion workspace as a `.zip` (or push to GitHub) and open `colab/Voidmetric_GPU_Render.ipynb` on a Colab **L4** or **T4** GPU (`--gl=angle-egl --concurrency=4`, `EFFECT_MSAA = 4`, auto-saves to Google Drive). Avoid A100/TPUs for WebGL rendering.
 - **`local-2k` (Local GPU PC — `1440×2560` @ `30 fps`):** Native 2K composition (`EpisodeShort2K`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
 
 > [!IMPORTANT]
