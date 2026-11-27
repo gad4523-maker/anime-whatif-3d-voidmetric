@@ -142,14 +142,38 @@ Run via `uv run scripts/whatif_cli.py ...` (local PC) or `python3 scripts/whatif
    - Run `whatif_cli.py check-framing` and verify `PASS` (`halfWidth = D * tan(fov/2) * 0.5625`).
    - Render `EpisodeLookCheck3D` (`16` frames at `540×960`, `--gl=swangle --concurrency=1` in cloud / `--gl=angle --concurrency=4` on GPU), tile into `sheet_3d.jpg`, and **visually inspect every tile**. Fix ANY clipped limb, hair spike, orb, kanji, or weapon before full render!
 
-### Stage 7 — Final Render, `qa-audit` & Delivery
-- **In Gemini Tasks (`cloud-1080p`, `1080×1920` @ `30 fps`):**
-  1. Run `python3 scripts/whatif_cli.py render-cloud --remotion-root ./workspace-remotion --composition EpisodeShort1080 --total-frames <N> --chunk-frames 300 --audio <mix.wav> --out-video <final_1080p.mp4> --gl swangle --concurrency 1 --crf 17 --output /tmp/render_report.json`.
-  2. Run `python3 scripts/whatif_cli.py qa-audit --video <final_1080p.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile cloud-1080p --output /tmp/qa_report.json`.
-- **On Local GPU PC (`local-2k`, `1440×2560` @ `30 fps`):**
-  1. Set `REMOTION_TMP=F:/remotion-tmp`, render native `EpisodeShort2K` (`--crf=16 --gl=angle --concurrency=4`), mux with `-map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 256k -movflags +faststart -shortest`, and clean temp caches.
-  2. Run `uv run scripts/whatif_cli.py qa-audit --video <final_2k.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile local-2k --output <qa_report.json>`.
-- **Mandatory Final Visual Audit:** Visually inspect key contact sheets from `<qa_dir>` confirming 0 clipping, clean subtitles, and crisp renders before delivering the final MP4.
+### Stage 7 — Render Choice Gate (Colab GPU vs. Self-Render 1080p), `qa-audit` & Delivery
+Once all 16 tiles of `EpisodeLookCheck3D` pass visual inspection:
+
+1. **MANDATORY RENDER CHOICE QUESTION (On Cloud / CPU Sandboxes like Gemini Tasks):**
+   Before starting the full render, **always ask the user:**
+   > *"All 16 Look-Check frames passed with zero clipping! Do you have **Google Colab Pro (`L4`/`T4` GPU)** to render this in ~2–4 minutes (1080p or 2K), or should I render the full **1080p 30 fps** video myself right here?"*
+   - **If user says YES (has Google Colab Pro):**
+     1. Zip the verified Remotion workspace (excluding `node_modules/` and temp caches) into `episode_<slug>_colab_bundle.zip`:
+        ```bash
+        zip -r -q episode_<slug>_colab_bundle.zip workspace-remotion -x "*/node_modules/*" "*/.git/*" "*/remotion-tmp/*"
+        ```
+     2. Deliver the `.zip` along with the 1-click Colab Pro link:
+        `https://colab.research.google.com/github/gad4523-maker/anime-whatif-3d-voidmetric/blob/main/colab/Voidmetric_GPU_Render.ipynb` (remind them to pick **`L4 GPU`** or **`T4 GPU`**, never A100/TPU).
+   - **If user says NO (no Colab — self-render right here in `1080p 30 fps`):**
+     1. Immediately render the full **`1080×1920` @ `30 fps`** video in safe OOM-proof 300-frame chunks:
+        ```bash
+        python3 scripts/whatif_cli.py render-cloud \
+          --remotion-root ./workspace-remotion \
+          --composition EpisodeShort1080 \
+          --total-frames <N> \
+          --chunk-frames 300 \
+          --audio ./workspace-remotion/projects/<slug>/audio/mix.wav \
+          --out-video ./workspace-remotion/projects/<slug>/out/final_1080p.mp4 \
+          --gl swangle --concurrency 1 --crf 17 \
+          --output /tmp/render_report.json
+        ```
+     2. Run `python3 scripts/whatif_cli.py qa-audit --video <final_1080p.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile cloud-1080p --output /tmp/qa_report.json`.
+     3. Visually inspect key contact sheets from `<qa_dir>` confirming 0 clipping, clean subtitles, and crisp renders before delivering the final 1080p MP4.
+2. **On Local GPU PC (`local-2k`, `1440×2560` @ `30 fps`):**
+   1. Set `REMOTION_TMP=F:/remotion-tmp`, render native `EpisodeShort2K` (`--crf=16 --gl=angle --concurrency=4`), mux with `-map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 256k -movflags +faststart -shortest`, and clean temp caches.
+   2. Run `uv run scripts/whatif_cli.py qa-audit --video <final_2k.mp4> --shots-json <shots.json> --qa-dir <qa_dir> --profile local-2k --output <qa_report.json>`.
+   3. Visually inspect key contact sheets from `<qa_dir>` and deliver the final 2K MP4.
 
 ---
 

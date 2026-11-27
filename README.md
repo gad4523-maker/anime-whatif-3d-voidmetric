@@ -33,7 +33,8 @@ Start at Stage 1 & Stage 2:
 1. Ask me for the character/VFX reference images and give me 5 tailored SFX generation prompts.
 2. Run the Full-Canon Lore Fact-Checker (original source manga/manhwa/light novels + official databooks + canon anime — NOT limited to anime-only; exclude non-canon filler/fan myths and flag unadapted spoilers) and draft LORE_FACT_SHEET.md + SCRIPT.md + Adversarial Lore Audit.
 3. PAUSE for my approval on the fact sheet & script.
-4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create the 3D anime character rigs, render turnaround + face close-up + cast lineup images, and SHOW ME the created characters. Do NOT proceed to video/world/VFX creation until I explicitly approve the characters!
+4. HARD STOP AT STAGE 4 (CHARACTER APPROVAL): After I approve the script, FIRST create the 3D anime character rigs, render turnaround + face close-up + cast lineup images, and SHOW ME the created characters. Do NOT proceed further to video/world/VFX creation until I explicitly approve the characters!
+5. STAGE 7 RENDER CHOICE: Once Stage 6 Look-Check passes, ASK ME whether I have Google Colab Pro (if YES, zip `workspace-remotion` excluding `node_modules` for my Colab L4/T4 notebook; if NO, immediately render the full 1080p 30 fps video yourself via `python3 scripts/whatif_cli.py render-cloud` + run `qa-audit`).
 ```
 
 ---
