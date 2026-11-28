@@ -279,6 +279,18 @@ def limit_true_peak(x: np.ndarray, ceil_db=-1.1):
 
 
 def main():
+    # Voidmetric v4.1: Delegate automatically to zero-dependency Node.js Physical Audio Studio (`audio_studio.mjs`)
+    # unless `--python-fallback` is passed explicitly!
+    studio_mjs = os.path.join(HERE, "audio_studio.mjs")
+    if "--python-fallback" not in sys.argv and os.path.exists(studio_mjs):
+        import shutil
+        node_bin = shutil.which("node")
+        if node_bin:
+            cmd = [node_bin, studio_mjs] + [a for a in sys.argv[1:] if a != "--python-fallback"]
+            print(f"[Voidmetric v4.1] Running Node.js Physical Audio Studio: {' '.join(cmd)}")
+            res = subprocess.run(cmd, cwd=HERE)
+            sys.exit(res.returncode)
+
     cfg = json.load(open(CUES_JSON, encoding="utf-8")) if os.path.exists(CUES_JSON) else {}
     words = json.load(open(WORDS_JSON, encoding="utf-8")).get("words", []) if os.path.exists(WORDS_JSON) else []
     fps = int(cfg.get("fps", 30))

@@ -905,6 +905,8 @@ export type AnimeHeadOpts = {
   outline?: number;
   /** Outline ink color (default #160c20) */
   outlineColor?: string;
+  /** Subtle analytic 3D anime facial profile relief (superellipse jaw-edge + brow/socket/cheek/lip contour, 0..1.5, default 1.0) */
+  profileRelief?: number;
 };
 
 export type AnimeFaceLayout = {
@@ -1475,20 +1477,24 @@ export function buildAnimeHead3D(
   const es = opts.earScale ?? arch.earScale;
   const ow = (opts.outline ?? 0.0042) * sc;
   const inkCol = opts.outlineColor ?? "#160c20";
+  const relief = opts.profileRelief ?? 1.0;
 
   const group = new THREE.Group();
   group.name = "anime_head_3d";
   parent.add(group);
 
-  // Shape helper: flattens the front face mask (+Z), crispens temple corners, sharpens the V-chin!
-  const makeFaceShape = (frontFlat: number, chinPinch: number) => (th: number): [number, number] => {
+  // Shape helper: superellipse (p=2.22) skull-to-cheek planes + flat front mask (+Z) + razor V-chin + crisp jaw edge!
+  const makeFaceShape = (frontFlat: number, chinPinch: number, superP = 2.22) => (th: number): [number, number] => {
     const s = Math.sin(th); // +1 front (+Z), -1 back (-Z)
     const c = Math.abs(Math.cos(th)); // +1 sides (±X)
     const isFront = Math.max(0, s);
+    // Superellipse radius factor squares off temples & jaw planes cleanly like hand-drawn anime heads
+    const se = relief > 0.01 ? Math.pow(Math.pow(c, superP) + Math.pow(Math.abs(s), superP), -1 / superP) : 1.0;
+    const seBlend = 1.0 + (se - 1.0) * Math.min(1.0, relief) * 0.72;
     // Flatten front face subtly so face reads as clean anime planar mask instead of a balloon
-    const zMul = 1.0 - frontFlat * Math.pow(isFront, 1.8) + chinPinch * 0.14 * Math.pow(isFront, 4.0);
+    const zMul = seBlend * (1.0 - frontFlat * Math.pow(isFront, 1.8) + chinPinch * 0.14 * Math.pow(isFront, 4.0));
     // Narrow lower front cheeks toward pointed V-chin while keeping back skull natural
-    const xMul = 1.0 - chinPinch * 0.24 * Math.pow(isFront, 1.4) + (1.0 - chinPinch) * 0.03 * Math.pow(c, 2.0);
+    const xMul = seBlend * (1.0 - chinPinch * 0.24 * Math.pow(isFront, 1.4) + (1.0 - chinPinch) * 0.03 * Math.pow(c, 2.0));
     return [xMul, zMul];
   };
 
@@ -1520,11 +1526,35 @@ export function buildAnimeHead3D(
 
   const headGeo = loftRings(rings, 40);
 
-  // Override UVs with distortion-free PLANAR FRONT-FACE PROJECTION so 76% of the 1024px texture maps flat onto the face!
+  // Apply subtle analytic 3D anime facial relief (cheekbone fullness, eye-socket recess, brow, upper/lower lip & chin)
+  // Strictly gentle (1.2-3.0mm) so planar front face UVs remain undistorted while 3/4 & profile angles read crisp!
   const posAttr = headGeo.attributes.position as THREE.BufferAttribute;
   const uvAttr = headGeo.attributes.uv as THREE.BufferAttribute;
   const faceHalfW = 0.096 * ws * sc;
   const headH = 0.259 * sc;
+  if (relief > 0.01) {
+    const g2 = (v: number, c: number, s: number) => Math.exp(-Math.pow((v - c) / s, 2));
+    for (let i = 0; i < posAttr.count; i++) {
+      const x = posAttr.getX(i);
+      const y = posAttr.getY(i);
+      const z = posAttr.getZ(i);
+      if (z <= 0.015 * sc) continue;
+      // Smooth wide-kernel relief (sigma >= ring spacing) so 3/4 silhouette gains subtle anime cheek/brow/socket planes with zero chin creasing!
+      const yn = (y / headH) * 2.0 - 1.0;
+      const xn = x / Math.max(1e-4, faceHalfW);
+      const frontWeight = Math.min(1.0, Math.max(0.0, (z - 0.015 * sc) / (0.068 * sc)));
+      const cheek = 0.0020 * g2(yn, -0.22, 0.18) * g2(Math.abs(xn), 0.44, 0.25);
+      const socket = -0.0022 * g2(yn, 0.04, 0.15) * g2(Math.abs(xn), 0.40, 0.26);
+      const brow = 0.0018 * g2(yn, 0.22, 0.14) * g2(xn, 0.0, 0.48);
+      const chinSoft = 0.0014 * g2(yn, -0.82, 0.16) * g2(xn, 0.0, 0.28);
+      const dz = (cheek + socket + brow + chinSoft) * sc * relief * frontWeight;
+      posAttr.setZ(i, z + dz);
+    }
+    posAttr.needsUpdate = true;
+    headGeo.computeVertexNormals();
+  }
+
+  // Override UVs with distortion-free PLANAR FRONT-FACE PROJECTION so 76% of the 1024px texture maps flat onto the face!
   for (let i = 0; i < posAttr.count; i++) {
     const x = posAttr.getX(i);
     const y = posAttr.getY(i);

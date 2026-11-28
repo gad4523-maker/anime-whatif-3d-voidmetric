@@ -133,15 +133,22 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             dst.write_text(txt.replace("{{MSAA_SAMPLES}}", msaa), encoding="utf-8")
             copied_files.append(str(dst))
 
-    # Universal data-driven Audio master mix engine + BS.1770-4 DSP core + starter audio_cues.json
-    copy_if_missing(TEMPLATES_DIR / "audio" / "mix_template.py", proj_dir / "audio" / "mix_episode.py")
-    copy_if_missing(TEMPLATES_DIR / "audio" / "dsp.py", proj_dir / "audio" / "dsp.py")
-    copy_if_missing(TEMPLATES_DIR / "audio" / "audio_cues_template.json", proj_dir / "audio" / "audio_cues.json")
+    # Voidmetric v4.1 Zero-Dependency Node.js Physical Audio Studio + legacy Python fallback + starter audio_cues.json
+    for aud_src, aud_dst in [
+        ("dsp_core.mjs", "dsp_core.mjs"),
+        ("phys_sfx.mjs", "phys_sfx.mjs"),
+        ("phys_inst.mjs", "phys_inst.mjs"),
+        ("audio_studio.mjs", "audio_studio.mjs"),
+        ("mix_template.py", "mix_episode.py"),
+        ("dsp.py", "dsp.py"),
+        ("audio_cues_template.json", "audio_cues.json"),
+    ]:
+        copy_if_missing(TEMPLATES_DIR / "audio" / aud_src, proj_dir / "audio" / aud_dst)
 
-    # Ensure shared bridge post-processing + cardshade + WhipBlur exists
+    # Ensure shared bridge post-processing + 35mm FilmOptics + cardshade + WhipBlur exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
     bridge_dir.mkdir(parents=True, exist_ok=True)
-    for eng_file in ["ink.ts", "lensblur.ts", "whipblur.ts", "grade.ts", "shade.ts", "cardshade.ts"]:
+    for eng_file in ["ink.ts", "lensblur.ts", "whipblur.ts", "grade.ts", "filmoptics.ts", "shade.ts", "cardshade.ts"]:
         copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
 
     # Instantiate doc templates with episode title & slug
@@ -1262,6 +1269,98 @@ def cmd_check_camera(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+# ---------------------------------------------------------------------------
+# 12. extract-events (Picture-to-Sound Frame-Locked Event Extractor!)
+# ---------------------------------------------------------------------------
+def cmd_extract_events(args: argparse.Namespace) -> None:
+    story_path = Path(args.story_ts).resolve()
+    remotion_root = Path(args.remotion_root).resolve() if args.remotion_root else story_path.parents[3]
+    if not story_path.exists():
+        fail(f"story.ts not found: {story_path}")
+    node_bin = shutil.which("node")
+    if not node_bin:
+        fail("Node.js not found on PATH (required for `extract-events`).")
+
+    js_probe = r"""
+const path = require("path");
+const { createRequire } = require("module");
+const remotionRoot = process.argv[1];
+const storyTs = process.argv[2];
+const req = createRequire(path.join(remotionRoot, "package.json"));
+const esbuild = req("esbuild");
+const built = esbuild.buildSync({
+  entryPoints: [storyTs],
+  bundle: true,
+  platform: "node",
+  format: "cjs",
+  write: false,
+  logLevel: "silent",
+});
+const mod = { exports: {} };
+const fn = new Function("exports", "require", "module", "__filename", "__dirname", built.outputFiles[0].text);
+fn(mod.exports, req, mod, storyTs, path.dirname(storyTs));
+const exp = mod.exports;
+const fps = Number(exp.FPS || 30);
+const shots = Array.isArray(exp.SHOTS) ? exp.SHOTS : [];
+const total = Number(exp.TOTAL || (shots.length ? shots[shots.length - 1].b : 0));
+const shotFor = (f) => {
+  const s = shots.find((q) => f >= q.a && f < q.b) || shots[shots.length - 1];
+  return s ? (s.name || String(s.id)) : "shot_1";
+};
+const events = [];
+const pushUnique = (ev) => {
+  const dup = events.some((e) => Math.abs(e.f - ev.f) <= 2 && e.kind === ev.kind);
+  if (!dup) events.push(ev);
+};
+if (Array.isArray(exp.AUDIO_EVENTS)) {
+  for (const e of exp.AUDIO_EVENTS) {
+    const f = Number(e.f || 0);
+    pushUnique({
+      f,
+      t: Number((f / fps).toFixed(5)),
+      shot: shotFor(f),
+      kind: String(e.kind || "whoosh"),
+      gain: e.gain,
+      pan: e.pan,
+      dur: e.dur,
+      lane: e.lane || "hits",
+      duckDb: e.duckDb,
+      riseFrames: e.riseFrames,
+      space: e.space,
+      params: e.params || {},
+      label: e.label || String(e.kind || "event"),
+      source: "AUDIO_EVENTS",
+    });
+  }
+}
+if (Array.isArray(exp.SHOCKWAVES)) {
+  for (const sw of exp.SHOCKWAVES) {
+    const f = Number(sw.f || 0);
+    if (!events.some((e) => Math.abs(e.f - f) <= 2)) {
+      pushUnique({ f, t: Number((f / fps).toFixed(5)), shot: shotFor(f), kind: "shock_ring", lane: "hero", gain: 0.8, duckDb: 4.0, label: "auto shockwave", source: "SHOCKWAVES" });
+    }
+  }
+}
+if (Array.isArray(exp.IMPACT_FRAMES)) {
+  for (const imp of exp.IMPACT_FRAMES) {
+    const f = Number(imp.f || 0);
+    if (!events.some((e) => Math.abs(e.f - f) <= 2)) {
+      pushUnique({ f, t: Number((f / fps).toFixed(5)), shot: shotFor(f), kind: "boom", lane: "hero", gain: 0.85, duckDb: 5.0, riseFrames: 6, label: "auto impact frame", source: "IMPACT_FRAMES" });
+    }
+  }
+}
+events.sort((a, b) => a.f - b.f);
+process.stdout.write(JSON.stringify({ fps, total, shots: shots.map((s) => ({ id: s.id, name: s.name || String(s.id), a: s.a, b: s.b })), events }, null, 2));
+"""
+    proc = subprocess.run([node_bin, "-e", js_probe, str(remotion_root), str(story_path)], capture_output=True, text=True)
+    if proc.returncode != 0:
+        fail(f"Failed extracting picture events from story.ts:\n{proc.stderr.strip() or proc.stdout.strip()}")
+    payload = json.loads(proc.stdout)
+    out_path = Path(args.output).resolve()
+    write_json(out_path, payload)
+    print(f"Extracted {len(payload.get('events', []))} picture-locked audio events ({payload.get('fps')} fps) -> {out_path}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whatif_cli.py", description="Voidmetric Anime What-If 3D Short CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -1370,6 +1469,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_cam.add_argument("--warn-only", action="store_true", help="Return exit code 0 even if tripod thresholds fail")
     p_cam.add_argument("--output", required=True, help="Path to write camera audit JSON report")
     p_cam.set_defaults(func=cmd_check_camera)
+
+    p_ev = sub.add_parser("extract-events", help="Extract picture-locked AUDIO_EVENTS / SHOCKWAVES / IMPACT_FRAMES from story.ts into audio/events.json")
+    p_ev.add_argument("--story-ts", required=True, help="Path to src/videos/<slug>/story.ts")
+    p_ev.add_argument("--remotion-root", default="", help="Path to workspace-remotion root (for resolving esbuild)")
+    p_ev.add_argument("--output", required=True, help="Destination events.json path (e.g. projects/<slug>/audio/events.json)")
+    p_ev.set_defaults(func=cmd_extract_events)
 
     return p
 

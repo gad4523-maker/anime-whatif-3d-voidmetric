@@ -1,6 +1,7 @@
-// Voidmetric v4.0 Minimal Zero-Hardcoding Episode Timeline Starter
-// Replace shots, custom camera trajectories, lighting moods, and Sakuga punctuation with your episode's exact beats!
+// Voidmetric v4.1 Minimal Zero-Hardcoding Episode Timeline Starter
+// Replace shots, custom camera trajectories, lighting moods, Sakuga punctuation, shockwaves, and picture-locked audio events!
 import { EpisodeLightName } from "./lights";
+import { ShockwaveState } from "../bridge/filmoptics";
 import {
   CamKey,
   CamState,
@@ -13,7 +14,7 @@ import {
   rolledCam,
   runCamKeys,
 } from "./cam3d_core";
-import { HitStopCue, ImpactFrameCue, SpeedlineCue } from "./sakuga_fx";
+import { HitStopCue, ImpactFrameCue, KiteBoltCue, SpeedlineCue } from "./sakuga_fx";
 
 export const FPS = 30;
 export const TOTAL = 390; // Set to exact voiceover frame count (`Math.ceil(dur_s * 30)`)
@@ -37,6 +38,33 @@ export type ShotDef = {
   dof: { cInf: number; focusDist?: number };
 };
 
+export type ShockwaveCue = {
+  f: number;
+  dur: number;
+  center?: [number, number];
+  r0?: number;
+  r1?: number;
+  width?: number;
+  amp?: number;
+  ca?: number;
+  rag?: number;
+  seed?: number;
+};
+
+export type AudioEventCue = {
+  f: number;
+  kind: string;
+  gain?: number;
+  pan?: number;
+  dur?: number;
+  lane?: "hits" | "hero" | "foley" | "amb";
+  duckDb?: number;
+  riseFrames?: number;
+  space?: Record<string, unknown> | false;
+  params?: Record<string, unknown>;
+  label?: string;
+};
+
 export const SHOTS: ShotDef[] = [
   { id: 1, name: "shot_1", a: 0, b: 180, zone: Z_STAGE_A, light: "base", dof: { cInf: 11 } },
   { id: 2, name: "shot_2", a: 180, b: TOTAL, zone: Z_STAGE_B, light: "base", dof: { cInf: 10 } },
@@ -47,7 +75,14 @@ export const FLASHES: { f: number; dur: number; tint?: string }[] = [{ f: 186, d
 export const KICKS: [number, number][] = [[184, 1.2]];
 export const IMPACT_FRAMES: ImpactFrameCue[] = [];
 export const SPEEDLINES: SpeedlineCue[] = [];
+export const KITE_BOLTS: KiteBoltCue[] = [];
 export const HIT_STOPS: HitStopCue[] = [];
+export const SHOCKWAVES: ShockwaveCue[] = [];
+
+// Picture-locked audio cues extracted automatically via `whatif_cli.py extract-events` into `audio/events.json`!
+export const AUDIO_EVENTS: AudioEventCue[] = [
+  { f: 184, kind: "shock_ring", lane: "hero", gain: 0.78, duckDb: 4.0, riseFrames: 8, label: "Act transition pulse" },
+];
 
 export const shotAt = (f: number) => SHOTS.find((s) => f >= s.a && f < s.b) ?? SHOTS[SHOTS.length - 1];
 
@@ -72,6 +107,26 @@ export const flashAt = (f: number): { alpha: number; color: string } => {
     }
   }
   return { alpha: 0, color: "#ffffff" };
+};
+
+export const shockwaveAt = (f: number): ShockwaveState | null => {
+  for (const sw of SHOCKWAVES) {
+    if (f >= sw.f && f < sw.f + sw.dur) {
+      const u = clamp01((f - sw.f) / Math.max(1, sw.dur));
+      const easeOut = 1 - Math.pow(1 - u, 2.2);
+      const env = Math.sin(Math.min(1, u * 5) * Math.PI * 0.5) * Math.pow(1 - u, 1.35);
+      return {
+        center: sw.center ?? [0.5, 0.5],
+        radius: (sw.r0 ?? 0.04) + ((sw.r1 ?? 0.62) - (sw.r0 ?? 0.04)) * easeOut,
+        width: sw.width ?? 0.055,
+        amp: (sw.amp ?? 0.022) * env,
+        ca: sw.ca ?? 3.4,
+        rag: sw.rag ?? 0.11,
+        seed: (sw.seed ?? 1.0) + (f - sw.f) * 0.18,
+      };
+    }
+  }
+  return null;
 };
 
 export const lightForShot = (id: number, _f: number): EpisodeLightName => SHOTS[id - 1].light;

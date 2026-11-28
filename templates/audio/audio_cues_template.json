@@ -2,7 +2,7 @@
   "bpm": 124,
   "scale_root_hz": 73.42,
   "scale_intervals": [0, 2, 3, 5, 7, 8, 10, 12],
-  "cutoff_hz": 1800.0,
+  "cutoff_hz": 1950.0,
   "drums": true,
   "fps": 30,
   "target_lufs": -14.5,
@@ -14,6 +14,14 @@
     "twist_silence_end_s": 33.2,
     "climax_end_s": 54.0
   },
+  "default_space": {
+    "t60": 0.65,
+    "preDelay": 0.008,
+    "hiCut": 4600,
+    "loCut": 120,
+    "wet": 0.22
+  },
+  "rises": [],
   "sfx_files": {},
   "cues": []
 }

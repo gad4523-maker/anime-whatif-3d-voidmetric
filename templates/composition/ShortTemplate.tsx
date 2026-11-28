@@ -1,8 +1,9 @@
-// Voidmetric v3.7 Anime What-If 3D Short — Remotion + Three.js + Sakuga Impact-Frame Composition!
+// Voidmetric v4.1 Anime What-If 3D Short — Remotion + Three.js + 35mm Optical Finishing & Sakuga Composition!
 // Post-processing chain:
 //   InkPass (world layer 0 only) -> LensBlur.pre -> LensBlur.main -> 6-level HDR Mipmap BloomEffect ->
 //   WhipBlur (16-tap directional blur on fast whip pans) -> ToneMappingEffect(NEUTRAL) -> GradeEffect ->
-//   GrainEffect (subtle deterministic tactile film grain) -> Sakuga Impact Frames / Speedlines -> Karaoke Subtitles!
+//   FilmOpticsEffect (3-scale 35mm halation, corner CA, C1 tanh shoulder, ragged shockwave ring, film grain) ->
+//   Sakuga Impact Frames / Kanada Wedges / Angular Kite-Bolts -> Karaoke Subtitles!
 import React, { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { AbsoluteFill, useCurrentFrame, useVideoConfig } from "remotion";
@@ -11,12 +12,25 @@ import { useThree } from "@react-three/fiber";
 import { EffectComposer } from "@react-three/postprocessing";
 import { BlendFunction, BloomEffect, ToneMappingEffect, ToneMappingMode } from "postprocessing";
 import { InkPass } from "../bridge/ink";
-import { GrainEffect, LensBlur } from "../bridge/lensblur";
+import { LensBlur } from "../bridge/lensblur";
 import { WhipBlur } from "../bridge/whipblur";
 import { GradeEffect } from "../bridge/grade";
+import { FilmOpticsEffect } from "../bridge/filmoptics";
 import { getEpisodeLight } from "./lights";
 import { EpisodeWorld } from "./world";
-import { HIT_STOPS, IMPACT_FRAMES, SPEEDLINES, TOTAL, camAt, dofAt, flashAt, layersAt, lightForShot } from "./story";
+import {
+  HIT_STOPS,
+  IMPACT_FRAMES,
+  KITE_BOLTS,
+  SPEEDLINES,
+  TOTAL,
+  camAt,
+  dofAt,
+  flashAt,
+  layersAt,
+  lightForShot,
+  shockwaveAt,
+} from "./story";
 import { computeWhipVelUV } from "./cam3d_core";
 import { SakugaOverlay, applyHitStop, impactFilterAt } from "./sakuga_fx";
 import { SubtitlesOverlay } from "./Subtitles";
@@ -62,7 +76,14 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       whip: new WhipBlur(),
       tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
       grade: new GradeEffect(getEpisodeLight("base").grade, 1.0),
-      grain: new GrainEffect({ amount: 0.016, cellPx: 1.5 }),
+      optics: new FilmOpticsEffect({
+        halationAmount: 0.20,
+        halationTint: "#ffdfc2",
+        cornerCA: 0.85,
+        blackLift: 0.012,
+        grainAmount: 0.014,
+        grainCellPx: 1.5,
+      }),
     }),
     [camera, scene]
   );
@@ -74,7 +95,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       else InkPass.prototype.dispose.call(fx.ink);
       if (typeof fx.lens.dispose === "function") fx.lens.dispose();
       if (typeof fx.whip.dispose === "function") fx.whip.dispose();
-      if (typeof fx.grain.dispose === "function") fx.grain.dispose();
+      if (typeof fx.optics.dispose === "function") fx.optics.dispose();
     },
     [fx]
   );
@@ -95,7 +116,8 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
 
   const lName = lightForShot(id, animF);
   fx.grade.set(getEpisodeLight(lName).grade);
-  fx.grain.seed = animF;
+  fx.optics.seed = f;
+  fx.optics.setShockwave(shockwaveAt(f));
 
   const passes = useMemo(
     () => [
@@ -106,7 +128,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       <primitive key="whip" object={fx.whip} />,
       <primitive key="tone" object={fx.tone} />,
       <primitive key="grade" object={fx.grade} />,
-      <primitive key="grain" object={fx.grain} />,
+      <primitive key="optics" object={fx.optics} />,
     ],
     [fx]
   );
@@ -149,7 +171,7 @@ export const EpisodeShort: React.FC<{ frameOverride?: number; hideSubtitles?: bo
       {layersAt(f).map((l, i) => (
         <ShotView key={i ? "over" : "base"} id={l.id} alpha={l.alpha} frame={f} filter={imp.filter} />
       ))}
-      <SakugaOverlay frame={f} impacts={IMPACT_FRAMES} speedlines={SPEEDLINES} flash={fl} />
+      <SakugaOverlay frame={f} impacts={IMPACT_FRAMES} speedlines={SPEEDLINES} kiteBolts={KITE_BOLTS} flash={fl} />
       {!hideSubtitles && <SubtitlesOverlay frameOverride={f} />}
     </AbsoluteFill>
   );

@@ -16,11 +16,11 @@ description: >-
   (`package-pc`), and full short_qa.py audits.
 ---
 
-# Anime What-If 3D Short — Voidmetric `v4.0` Zero-Hardcoding Pure-Primitives Pipeline
+# Anime What-If 3D Short — Voidmetric `v4.1` Zero-Hardcoding Pure-Primitives Pipeline
 
 ## Overview
 
-Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** with **ZERO hardcoded presets** — every environment, texture, lighting mood, camera angle/path, character pose, prop, VFX shader, and audio score is authored uniquely for the episode using pure low-level 3D engine primitives.
+Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** with **ZERO hardcoded presets** — every environment, texture, lighting mood, camera angle/path, character pose, prop, VFX shader, acoustic space, and physical audio score is authored uniquely for the episode using pure low-level 3D & DSP primitives.
 
 **ONLY two channel-identity elements stay locked across episodes:**
 1. **Recurring Channel MC 3D Rig** (`rig3d_mc.ts`)
@@ -32,15 +32,16 @@ Produces viral **~60-second vertical 30 fps 3D Anime explainer Shorts** with **Z
 - **`local-2k` (Direct Local GPU PC CLI):** Native `EpisodeShort2K` (`1440×2560`, `30 fps`), `--gl=angle --concurrency=4`, `EFFECT_MSAA = 4`, `F:/remotion-tmp`.
 
 > [!IMPORTANT]
-> **Zero-Hardcoding Pure-Primitives Architecture (`v4.0.1`):**
-> This pack ships **NO** hardcoded rooms/environments, **NO** hardcoded camera angle presets, **NO** hardcoded VFX classes, **NO** hardcoded prop builders, **NO** closed lighting dropdowns, and **NO** fixed music mood dropdowns. Every world, lighting mood, camera angle/path, prop, and VFX is authored bespoke for the episode using pure primitives — while keeping **optional reusable facial expressions** (`rig3d_core.ts`) and **optional reusable 26-bone humanoid movements** (`anim3d_core.ts`) alongside custom posing (`createPose`):
+> **Zero-Hardcoding Pure-Primitives Architecture (`v4.1`):**
+> This pack ships **NO** hardcoded rooms/environments, **NO** hardcoded camera angle presets, **NO** hardcoded VFX classes, **NO** hardcoded prop builders, **NO** closed lighting dropdowns, **NO** hardcoded reverb room dropdowns, and **NO** fixed music mood dropdowns. Every world, lighting mood, camera angle/path, prop, VFX, acoustic space, and score is authored bespoke for the episode using pure primitives — while keeping **optional reusable facial expressions** (`rig3d_core.ts`) and **optional reusable 26-bone humanoid movements** (`anim3d_core.ts`) alongside custom posing (`createPose`):
 > - **World & Textures (`env3d_core.ts`):** `hash01`, `makeEnvTex`, `cel`, `celTex`, `makePaintedMat`
 > - **Lighting (`lights.ts`):** Open `makeLightPreset(customSpec)` + `Record<string, EpisodeLightPreset>`
 > - **Camera Math (`cam3d_core.ts`):** `runCamKeys`, `glide`, `flowEase`, `pushK`, `dollyPush`, `zoomPush`, `rolledCam`, `applyImpactKicks15Hz`, `computeWhipVelUV`, `focusOnPoint`, `rackFocusPull`, `clampSafe916Dist`
-> - **3D Sculpting, Faces & Optional Expressions (`rig3d_core.ts`):** `makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `sculptLimbGeo`, `buildHand3D`, `buildAnimeHead3D`, `createAnimeFaceController` (10 optional live expressions + organic blink + `setGaze` + `customDraw`)
+> - **3D Sculpting, Head Relief, Faces & Optional Expressions (`rig3d_core.ts`):** `makeAnimeMat`, `addPart`, `loftRings`, `sculptCurveTube`, `sculptLimbGeo`, `buildHand3D`, `buildAnimeHead3D` (superellipse `p=2.22` jaw-edge + subtle analytic facial profile relief), `createAnimeFaceController` (10 optional live expressions + organic blink + `setGaze` + `customDraw`)
 > - **Custom Pose Math + Optional 18 Character Movements & Sockets (`anim3d_core.ts`, `props3d_core.ts`):** Custom `createPose`, `applyPoseSnapshot`, `blendPoseSnapshots`, `applySecondarySway` + optional reusable clips (`evaluateAnimeMotion`, `applyAnimeMotion`, `blendAnimeMotions`) + `attachToHand`, `attachThroughGrip`
-> - **Custom 3D GLSL VFX (`vfx3d.ts`):** `setNoInkTree`, `NOISE_GLSL`, `getGlowSpriteTex`, `createCustomVFXMat`
-> - **Post-Processing (`templates/engine/`):** `InkPass`, 2-pass `LensBlur`, 6-level HDR `BloomEffect`, 16-tap `WhipBlur`, `ToneMappingEffect(NEUTRAL)`, `GradeEffect`, `GrainEffect`
+> - **Custom 3D GLSL VFX & Sakuga Action Smears (`vfx3d.ts`, `sakuga_fx.tsx`):** `setNoInkTree`, `NOISE_GLSL`, `getGlowSpriteTex`, `createCustomVFXMat`, `createLimbSmearRibbon` (3D swept-limb dry-brush smear arc), `createAfterImageMat` (cel-ink silhouette ghosts), Kanada-style clumped radial wedges (`SpeedlineCue`), and thick-thin-thick angular `KiteBoltCue` + flying shards
+> - **35mm Optical Finishing & Shockwaves (`templates/engine/`):** `InkPass`, 2-pass `LensBlur`, 6-level HDR `BloomEffect`, 16-tap `WhipBlur`, `ToneMappingEffect(NEUTRAL)`, `GradeEffect`, **`FilmOpticsEffect`** (3-scale warm 35mm halation, radial corner CA, C1 `tanh` highlight shoulder, ragged space-refraction shockwave ring via `SHOCKWAVES`, luminance-enveloped film grain)
+> - **Zero-Dependency Node.js Physical Audio Studio (`templates/audio/*.mjs` + `extract-events`):** `dsp_core.mjs` (`createSpaceIR` parametric room convolution, Bark stand-out analysis, BS.1770-4 LUFS), `phys_sfx.mjs` (Friedlander blasts, supersonic N-waves, layered booms, shock rings, seismic groundwaves, Poisson debris grit, turbulent flame, moving-air energy, electric arcs, inward gather, water splash/drops, rock fracture/crunch/grind/dust, flesh/bone/cloth body hits, modal wood/ceramic/metal, cloth flap, wind, Doppler whoosh), `phys_inst.mjs` (Karplus-Strong plucked strings, Helmholtz bowed ensembles, Bessel modal drums/taiko), and `audio_studio.mjs` (1.9–3.0 kHz narrator presence carving, Bark SFX lift, pre-impact silence dips, `<170 Hz` punch ducking, bus glue, lookahead true-peak limiting)
 
 ---
 
@@ -78,16 +79,17 @@ pip install -q numpy scipy pillow
 
 All subcommands write structured JSON to `--output` and exit `1` on errors:
 
-1. **`init-episode`** — Scaffolds an immediately compilable (`tsc --noEmit` = 0 errors, `check-camera` = `PASS`) zero-hardcoding episode workspace with all pure engine primitives, locked `rig3d_mc.ts`, `Subtitles.tsx`, `CastSheet3D.tsx`, `LookCheck3D.tsx`, `EpisodeShort.tsx`, `mix_episode.py`, `dsp.py`, and doc templates.
+1. **`init-episode`** — Scaffolds an immediately compilable (`tsc --noEmit` = 0 errors, `check-camera` = `PASS`) zero-hardcoding episode workspace with all pure engine primitives, `filmoptics.ts`, locked `rig3d_mc.ts`, `Subtitles.tsx`, `CastSheet3D.tsx`, `LookCheck3D.tsx`, `EpisodeShort.tsx`, the zero-dependency Node.js Physical Audio Studio (`audio_studio.mjs`, `dsp_core.mjs`, `phys_sfx.mjs`, `phys_inst.mjs`, plus `mix_episode.py`), and doc templates.
 2. **`align-voice`** — Converts uploaded voiceover (`.mp3`/`.wav`/`.m4a`) cleanly to 48 kHz 24-bit stereo `voice.wav` and extracts exact Whisper word-level timestamps (`words.json`).
 3. **`check-framing`** — Mathematically checks every shot camera against exact 9:16 vertical frustum bounds (`halfWidth = D * tan(fov/2) * 0.5625`). Supports `"shot_type": "full_body" | "medium" | "closeup" | "insert"` (`allow_bottom_crop`).
 4. **`check-camera`** — **Anti-Tripod Cinema Camera Gate** (`--story-ts` pre-render OR `--video` post-render). Enforces dynamic pacing (`median >= 0.85 px/f`, target `1.5–3.6 px/f`; `hold_pct <= 45%`; `bursts_per_10s >= 2.5`, target `4.5–7.6`) and flags any shot `>= 2.5 s` parked on a static tripod.
-5. **`sync-subtitles`** & **`export-srt`** — Converts `words.json` into steady 1–3 word karaoke `subtitles_data.ts` & `.srt` with automatic orphan-word avoidance.
-6. **`check-beats`** — Verifies visual impact cues land `0–4 frames` before their spoken punch word.
-7. **`package-pc`** — Pure-Python `.zip` packager bundling `workspace-remotion` (including `mix.wav`, `shots.json`, `short_qa.py`, excluding `node_modules/` and caches) for **Voidmetric PC Render Studio**.
-8. **`render-cloud`** — OOM-proof resumable 300-frame chunked 1080p CPU renderer (`--gl swangle --concurrency 1`) + lossless FFmpeg concat & audio mux.
-9. **`qa-audit`** — Runs `scripts/short_qa.py` enforcing resolution/fps, `-16.5..-13.0 LUFS`, `0` black/frozen frames, `<= 5%` held frames.
-10. **`.glb` Rig Exporter:** `node scripts/export_rigs_glb.mjs --remotion-root ./workspace-remotion --slug <slug> --rigs mc:rig3d_mc.ts:buildMCRig3D:idle_casual,guest:rig3d_guest.ts:buildGuestRig3D:idle`
+5. **`extract-events`** — Auto-extracts picture-locked `AUDIO_EVENTS`, `SHOCKWAVES`, and `IMPACT_FRAMES` directly from `story.ts` into `projects/<slug>/audio/events.json` so physical SFX and pre-impact silence dips lock cleanly to exact 30 fps animation frames with zero manual drift.
+6. **`sync-subtitles`** & **`export-srt`** — Converts `words.json` into steady 1–3 word karaoke `subtitles_data.ts` & `.srt` with automatic orphan-word avoidance.
+7. **`check-beats`** — Verifies visual impact cues land `0–4 frames` before their spoken punch word.
+8. **`package-pc`** — Pure-Python `.zip` packager bundling `workspace-remotion` (including `mix.wav`, `shots.json`, `short_qa.py`, excluding `node_modules/` and caches) for **Voidmetric PC Render Studio**.
+9. **`render-cloud`** — OOM-proof resumable 300-frame chunked 1080p CPU renderer (`--gl swangle --concurrency 1`) + lossless FFmpeg concat & audio mux.
+10. **`qa-audit`** — Runs `scripts/short_qa.py` enforcing resolution/fps, `-16.5..-13.0 LUFS`, `0` black/frozen frames, `<= 5%` held frames.
+11. **`.glb` Rig Exporter:** `node scripts/export_rigs_glb.mjs --remotion-root ./workspace-remotion --slug <slug> --rigs mc:rig3d_mc.ts:buildMCRig3D:idle_casual,guest:rig3d_guest.ts:buildGuestRig3D:idle`
 
 ---
 
@@ -152,10 +154,11 @@ Every run operates in one of **3 modes** (default: `MODE: INTERACTIVE`):
    - Match canonical proportions, curved S-wave multi-lock 3D hair (`sculptCurveTube`, bangs framing — never covering — eyes), detailed costumes, and 5-finger articulated hands (`buildHand3D`).
 4. Export `.glb` rigs via `scripts/export_rigs_glb.mjs`, visually compare all rendered plates directly against the user's reference images, fix every flaw, then exit Stage 4 per the active mode gate.
 
-### Stage 5 — Audio Mastering & Rock-Steady Karaoke Subtitle Sync
+### Stage 5 — Physical Audio Studio Mastering & Rock-Steady Karaoke Subtitle Sync
 1. Keep the user's voiceover **100% untouched** — run `whatif_cli.py align-voice` to create 48 kHz 24-bit `voice.wav` and exact Whisper timestamps (`words.json`).
 2. Run `whatif_cli.py sync-subtitles --max-words 3` (orphan-free 1–3 word steady karaoke `subtitles_data.ts`) + `export-srt`.
-3. Configure `projects/<slug>/audio/audio_cues.json` for this specific episode (either a custom `music_wav` OR bespoke parametric synthesis parameters `scale_root_hz`, `scale_intervals`, `cutoff_hz`, `drums`, `bpm`, `acts`, twist micro-silences, and custom SFX cues) and run `mix_episode.py` (`-14.0` to `-14.5 LUFS`, true peak `<= -1.1 dBTP`).
+3. Once `story.ts` timing is finalized (or updated in Stage 6), run `whatif_cli.py extract-events --story-ts src/videos/<slug>/story.ts --remotion-root ./workspace-remotion --output projects/<slug>/audio/events.json` so picture-locked `AUDIO_EVENTS`, `SHOCKWAVES`, and `IMPACT_FRAMES` snap cleanly to exact 30 fps frames!
+4. Configure `projects/<slug>/audio/audio_cues.json` (custom `music_wav` OR bespoke physical-instrument synthesis via `scale_root_hz`, `scale_intervals`, `cutoff_hz`, `drums`, `bpm`, `acts`, `default_space` parametric room IR, `rises`, custom `sfx_files`, and physical SFX primitives in `cues`) and run `node projects/<slug>/audio/audio_studio.mjs` (or `python3 mix_episode.py`, which automatically delegates to `audio_studio.mjs`) to master `mix.wav` (`-14.5 LUFS`, true peak `<= -1.1 dBTP`) with automatic `1.9–3.0 kHz` voice-presence carving, Bark-band SFX stand-out lift, and pre-impact silence dips!
 
 ### Stage 6 — 100% Bespoke Painted 3D Worlds, Custom Lighting, Custom Camera Directing, Bespoke Acting & Zero-Clipping Look-Check Gate
 1. **100% Bespoke Painted 3D Worlds & Props (`env3d_core.ts`, `props3d_core.ts`):**
@@ -167,15 +170,15 @@ Every run operates in one of **3 modes** (default: `MODE: INTERACTIVE`):
 2. **Bespoke 3-Act Custom Lighting & Full Character-to-World Integration (`lights.ts`, `world.ts`):**
    - Define custom episode lighting moods directly in `lights.ts` via `makeLightPreset({ ... })` shifting color temperature across acts!
    - **Physical Lighting Craft (`mromidev` `lighting.md` Principles):** Keep sunlit daylight shadows bright & colorful (`shade/lit ≈ 0.46–0.52`, cool/pastel-lavender — NEVER muddy dark brown!), keep sunset/twilight/storm shadows richly chromatic (violet-blue, indigo, steel-blue), compress vivid sky gradient stops into `0°–26°` elevation so deep sky color shows inside a `40°` vertical FOV, drive `sunDisc` for glowing backlit HDR sun halos, AND always sync ALL 5 `ANIME_LIGHT` uniforms (`uLightDir`, `uKeyColor`, `uAmbientTint`, `uRimTint`, `uRimBoost`) so 3D characters live INSIDE the shot's lighting instead of looking pasted-on paper-white!
-   - Keep `GrainEffect({ amount: 0.016, cellPx: 1.5 })` enabled at the end of `EffectComposer` for subtle painted film texture.
+   - Keep **`FilmOpticsEffect`** enabled at the end of `EffectComposer` (3-scale warm 35mm halation, radial corner CA leaving faces tack-sharp in center, C1 `tanh` highlight shoulder roll-off, ragged `SHOCKWAVES` refraction rings, and luminance-enveloped film grain).
 3. **100% Custom Multi-Keyframe Camera Directing, Cinema DOF & Pacing (`cam3d_core.ts`, `WhipBlur`, `sakuga_fx.tsx`):**
    - **Custom Angles Every Shot — ZERO Static Tripods:** Compose bespoke `{ pos, look, fov, roll }` camera trajectories tailored to every shot (tight close-ups, macro prop inserts, 1st-person POV, high/low angles, orbits, tracking arcs, cranes, over-the-shoulder, Rule-of-Thirds mediums, and at least 1 dedicated visual mechanism cutaway/cross-section when explaining the canon catch!).
    - **Anti-Tripod Motion Grammar:** Chain `2–4` custom `CamKey` keyframes per 3–6 s shot via `runCamKeys(CAMS[id], f)` (targeting `4.5–7.5` real camera moves per 10 s, median `1.5–3.6 px/f`). Use exponential push-ins (`dollyPush`/`zoomPush` + `pushK`), symmetric `glide` (`18–36 f`) for same-room reframes, `cut: true` for large reframes, fast `8–13 f` whips (auto-blurred by 16-tap `WhipBlur`), `±4°–8°` rolled emphasis beats (`rolledCam`), 7-frame `applyImpactKicks15Hz` on hits, and **`6–8 f` `XFADE`** crossfades on major act/location jumps!
    - **True Cinema DOF + `focusOnPoint` + Foreground Parallax:** Use `cInf: 0` on wides and rich bokeh **`cInf: 10–15`** on close-ups/mediums/inserts (NEVER weak `cInf: 2–3`!). Whenever `cInf >= 8`, lock sharp focus onto the hero via **`focusDist: focusOnPoint(camAt(id, f), heroPos)`** so tilted cameras NEVER accidentally blur the character! Place foreground framing edges at `0.35–0.5× focusDist` (`10–25%` of one edge) for 3D parallax.
-   - **Genre-Matched Sakuga Punctuation:** On supernatural/action/thriller shorts, place `2–4` crisp `2–3 f` `IMPACT_FRAMES` / `HIT_STOPS` / brief `SPEEDLINES` on peak power/reveal hits (`0–2 f` before the punch word).
+   - **Genre-Matched Sakuga Punctuation:** On supernatural/action/thriller shorts, place `2–4` crisp `2–3 f` `IMPACT_FRAMES` / `HIT_STOPS` / Kanada clumped `SPEEDLINES` / angular `KITE_BOLTS` / `SHOCKWAVES` refraction rings on peak power/reveal hits (`0–2 f` before the punch word), and sweep fast punches/slashes with `createLimbSmearRibbon` or `createAfterImageMat`!
 4. **Custom 26-Bone Character Acting (+ Optional Reusable Movements) & Custom 3D GLSL VFX (`anim3d_core.ts`, `vfx3d.ts`):**
    - Author custom shot-specific poses directly on the character's 26-bone skeleton via `createPose` + `applyPoseSnapshot` + `blendPoseSnapshots` + `applySecondarySway`, **OR** optionally use/blend any of the 18 reusable humanoid movements in `anim3d_core.ts` (`applyAnimeMotion` / `blendAnimeMotions` — `idle_hero`, `walk`, `run`, `run_skirt_safe`, `sprint_lean`, `hover_float` *(only if canonically flying!)*, `power_charge`, `finger_snap`, `palm_blast`, `sword_slash`, `punch_combo`, `recoil_hit`, `kneel_exhausted`, `wheeze_knees`, `inspect_prop`, `write_board`, `talk_gesture`, `sit_desk`)! Use held anticipation → crisp impact timing on punch words, skirt/coat-safe leg arcs, and never leave MC frozen holding an invisible orb!
-   - Author bespoke episode-specific 3D VFX or physical FX (steam, rain, sparks, slashes, spatial warps, energy constructs) directly via `createCustomVFXMat` + `NOISE_GLSL` + `getGlowSpriteTex` + `setNoInkTree`. Always call `cast.update` + `root.updateMatrixWorld(true)` BEFORE bone-locking VFX via `bone.localToWorld(...)`.
+   - Author bespoke episode-specific 3D VFX, physical FX, and 3D action smears directly via `createCustomVFXMat` + `NOISE_GLSL` + `getGlowSpriteTex` + `createLimbSmearRibbon` + `createAfterImageMat` + `setNoInkTree`. Always call `cast.update` + `root.updateMatrixWorld(true)` BEFORE bone-locking VFX or smear ribbons via `bone.localToWorld(...)`.
 5. **Mandatory Automated Gates + 16-Tile Visual Look-Check:**
    - Pass ALL 4 checks BEFORE packaging: `npx tsc --noEmit` (`0` errors), `whatif_cli.py check-framing` (`PASS`), `whatif_cli.py check-camera --story-ts` (`PASS`), and `whatif_cli.py check-beats` (`PASS`).
    - Render all 16 frames of `EpisodeLookCheck3D` (`540×960`), tile into `preview_lookcheck_sheet.jpg`, and **visually inspect EVERY tile** — fix any clipped limb, out-of-focus hero, untextured surface, or off-model detail!
