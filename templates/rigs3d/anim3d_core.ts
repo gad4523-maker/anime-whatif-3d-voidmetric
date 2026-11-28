@@ -466,3 +466,254 @@ export function applySecondarySway(
     }
   }
 }
+
+// =========================================================================
+// v4.2 CLOSED-FORM TWO-BONE ANALYTICAL IK (ZERO FOOT-SLIDING / EXACT HAND-REACH!)
+// Pure closed-form law-of-cosines math per frame `f` — 100% deterministic in Remotion!
+// =========================================================================
+const _ikA = new THREE.Vector3();
+const _ikB = new THREE.Vector3();
+const _ikC = new THREE.Vector3();
+const _ikAB = new THREE.Vector3();
+const _ikBC = new THREE.Vector3();
+const _ikAT = new THREE.Vector3();
+const _ikAxis = new THREE.Vector3();
+const _ikPole = new THREE.Vector3();
+const _ikQ = new THREE.Quaternion();
+const _ikParentQ = new THREE.Quaternion();
+const _ikWorldQ = new THREE.Quaternion();
+
+/**
+ * Closed-form Analytical Two-Bone Inverse Kinematics Solver (`rootBone -> midBone -> endBone`).
+ * Call AFTER `applyPoseSnapshot` + `rig.root.updateMatrixWorld(true)`!
+ *   - For legs (Foot-Lock): `applyTwoBoneIK(rig.joints.thighL, rig.joints.kneeL, rig.joints.ankleL, footTarget, kneePole)`
+ *   - For arms (Hand-Reach): `applyTwoBoneIK(rig.joints.shoulderR, rig.joints.elbowR, rig.joints.wristR, gripTarget, elbowPole)`
+ */
+export function applyTwoBoneIK(
+  rootBone: THREE.Object3D,
+  midBone: THREE.Object3D,
+  endBone: THREE.Object3D,
+  worldTarget: THREE.Vector3,
+  worldPoleDir: THREE.Vector3,
+  weight = 1.0
+) {
+  const w = clamp01(weight);
+  if (w < 1e-4) return;
+  rootBone.updateWorldMatrix(true, false);
+  midBone.updateWorldMatrix(true, false);
+  endBone.updateWorldMatrix(true, false);
+
+  rootBone.getWorldPosition(_ikA);
+  midBone.getWorldPosition(_ikB);
+  endBone.getWorldPosition(_ikC);
+
+  const l1 = _ikA.distanceTo(_ikB);
+  const l2 = _ikB.distanceTo(_ikC);
+  if (l1 < 1e-4 || l2 < 1e-4) return;
+
+  _ikAT.subVectors(worldTarget, _ikA);
+  const rawDist = _ikAT.length();
+  const minDist = Math.abs(l1 - l2) + 0.004;
+  const maxDist = l1 + l2 - 0.004;
+  const dist = Math.max(minDist, Math.min(maxDist, rawDist));
+  const dirAT = _ikAT.clone().normalize();
+
+  // Law of cosines for interior angles at root & mid joints
+  const cosRoot = Math.max(-1, Math.min(1, (l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist)));
+  const angRoot = Math.acos(cosRoot);
+
+  // Build bend plane orthogonal to dirAT aligned toward worldPoleDir
+  _ikPole.copy(worldPoleDir).addScaledVector(dirAT, -worldPoleDir.dot(dirAT));
+  if (_ikPole.lengthSq() < 1e-6) _ikPole.set(0, 0, 1);
+  _ikPole.normalize();
+
+  // Desired world mid-joint position & desired upper/lower bone vectors
+  const desiredMid = _ikA
+    .clone()
+    .addScaledVector(dirAT, Math.cos(angRoot) * l1)
+    .addScaledVector(_ikPole, Math.sin(angRoot) * l1);
+  const desiredUpper = desiredMid.clone().sub(_ikA).normalize();
+  const desiredEnd = _ikA.clone().addScaledVector(dirAT, dist);
+  const desiredLower = desiredEnd.clone().sub(desiredMid).normalize();
+
+  // 1. Rotate rootBone in world space -> local space
+  _ikAB.subVectors(_ikB, _ikA).normalize();
+  _ikQ.setFromUnitVectors(_ikAB, desiredUpper);
+  rootBone.getWorldQuaternion(_ikWorldQ);
+  const newRootWorldQ = _ikQ.clone().multiply(_ikWorldQ);
+  if (rootBone.parent) {
+    rootBone.parent.getWorldQuaternion(_ikParentQ);
+    const localTargetQ = _ikParentQ.clone().invert().multiply(newRootWorldQ);
+    rootBone.quaternion.slerp(localTargetQ, w);
+  } else {
+    rootBone.quaternion.slerp(newRootWorldQ, w);
+  }
+  rootBone.updateWorldMatrix(true, true);
+
+  // 2. Rotate midBone so endBone lands cleanly on desiredEnd
+  midBone.getWorldPosition(_ikB);
+  endBone.getWorldPosition(_ikC);
+  _ikBC.subVectors(_ikC, _ikB).normalize();
+  _ikQ.setFromUnitVectors(_ikBC, desiredLower);
+  midBone.getWorldQuaternion(_ikWorldQ);
+  const newMidWorldQ = _ikQ.clone().multiply(_ikWorldQ);
+  if (midBone.parent) {
+    midBone.parent.getWorldQuaternion(_ikParentQ);
+    const localMidQ = _ikParentQ.clone().invert().multiply(newMidWorldQ);
+    midBone.quaternion.slerp(localMidQ, w);
+  } else {
+    midBone.quaternion.slerp(newMidWorldQ, w);
+  }
+  midBone.updateWorldMatrix(true, true);
+}
+
+/** Convenience Foot-Lock IK: pins left/right foot cleanly to a floor point `(x, floorY, z)` so characters NEVER skate! */
+export function applyFootLockIK(
+  rig: AnimeRig3D,
+  side: "L" | "R",
+  footWorldPos: THREE.Vector3,
+  weight = 1.0
+) {
+  const fwd = new THREE.Vector3(0, 0, 1).applyQuaternion(rig.root.quaternion).normalize();
+  if (side === "L") {
+    applyTwoBoneIK(rig.joints.thighL, rig.joints.kneeL, rig.joints.ankleL, footWorldPos, fwd, weight);
+  } else {
+    applyTwoBoneIK(rig.joints.thighR, rig.joints.kneeR, rig.joints.ankleR, footWorldPos, fwd, weight);
+  }
+}
+
+/** Convenience Hand-Reach IK: locks left/right wrist cleanly onto any world prop, door handle, wall, or opponent! */
+export function applyHandReachIK(
+  rig: AnimeRig3D,
+  side: "L" | "R",
+  handWorldPos: THREE.Vector3,
+  weight = 1.0
+) {
+  const elbowPole = new THREE.Vector3(side === "L" ? 0.5 : -0.5, -0.35, -0.8)
+    .applyQuaternion(rig.root.quaternion)
+    .normalize();
+  if (side === "L") {
+    applyTwoBoneIK(rig.joints.shoulderL, rig.joints.elbowL, rig.joints.wristL, handWorldPos, elbowPole, weight);
+  } else {
+    applyTwoBoneIK(rig.joints.shoulderR, rig.joints.elbowR, rig.joints.wristR, handWorldPos, elbowPole, weight);
+  }
+}
+
+// =========================================================================
+// v4.2 DETERMINISTIC PRE-BAKED SPRING-BONE HAIR / CAPE / COAT PHYSICS!
+// Simulates Verlet spring chains with spherical body colliders ONCE in `useMemo`
+// across `0..totalFrames` at fixed `dt = 1/fps` -> 100% bit-identical across Remotion workers!
+// =========================================================================
+export type SpringCollider = { center: [number, number, number]; radius: number };
+export type SpringChainBake = {
+  frames: number;
+  joints: number;
+  /** Packed XYZ Euler angles `[frame * joints * 3 + j * 3 + axis]` */
+  eulers: Float32Array;
+  /** Apply pre-baked local rotations directly onto `nodes` at frame `f`! */
+  applyAt: (nodes: THREE.Object3D[], f: number) => void;
+};
+
+export function bakeSpringChain(opts: {
+  jointCount: number;
+  segmentLength?: number;
+  totalFrames: number;
+  fps?: number;
+  /** Returns root world position + optional external wind/acceleration at frame `f` */
+  sampleRoot: (f: number) => { pos: [number, number, number]; wind?: [number, number, number] };
+  stiffness?: number;
+  drag?: number;
+  gravity?: number;
+  colliders?: SpringCollider[];
+}): SpringChainBake {
+  const J = Math.max(1, opts.jointCount);
+  const segLen = opts.segmentLength ?? 0.16;
+  const N = Math.max(2, opts.totalFrames);
+  const dt = 1 / (opts.fps ?? 30);
+  const stiff = opts.stiffness ?? 18.0;
+  const drag = clamp01(opts.drag ?? 0.16);
+  const grav = opts.gravity ?? -9.2;
+  const cols = opts.colliders ?? [];
+
+  const cur = Array.from({ length: J + 1 }, () => new THREE.Vector3());
+  const prev = Array.from({ length: J + 1 }, () => new THREE.Vector3());
+  const r0 = opts.sampleRoot(0).pos;
+  for (let j = 0; j <= J; j++) {
+    cur[j].set(r0[0], r0[1] - j * segLen, r0[2]);
+    prev[j].copy(cur[j]);
+  }
+
+  const eulers = new Float32Array(N * J * 3);
+  const restDir = new THREE.Vector3(0, -1, 0);
+  const segVec = new THREE.Vector3();
+  const qTmp = new THREE.Quaternion();
+  const eTmp = new THREE.Euler(0, 0, 0, "XYZ");
+  const cTmp = new THREE.Vector3();
+
+  for (let f = 0; f < N; f++) {
+    const drv = opts.sampleRoot(f);
+    cur[0].set(drv.pos[0], drv.pos[1], drv.pos[2]);
+    prev[0].copy(cur[0]);
+    const wx = drv.wind?.[0] ?? 0, wy = drv.wind?.[1] ?? 0, wz = drv.wind?.[2] ?? 0;
+
+    // Verlet integration step
+    for (let j = 1; j <= J; j++) {
+      const vx = (cur[j].x - prev[j].x) * (1 - drag);
+      const vy = (cur[j].y - prev[j].y) * (1 - drag);
+      const vz = (cur[j].z - prev[j].z) * (1 - drag);
+      prev[j].copy(cur[j]);
+      // Restoring stiffness pulls gently toward vertical rest below parent
+      const rx = cur[j - 1].x - cur[j].x;
+      const ry = cur[j - 1].y - segLen - cur[j].y;
+      const rz = cur[j - 1].z - cur[j].z;
+      cur[j].x += vx + (wx + rx * stiff) * dt * dt;
+      cur[j].y += vy + (grav + wy + ry * stiff) * dt * dt;
+      cur[j].z += vz + (wz + rz * stiff) * dt * dt;
+    }
+
+    // Distance constraints + spherical body-collider pushout (3 relaxation iterations)
+    for (let it = 0; it < 3; it++) {
+      for (let j = 1; j <= J; j++) {
+        segVec.subVectors(cur[j], cur[j - 1]);
+        const d = segVec.length();
+        if (d > 1e-5) cur[j].copy(cur[j - 1]).addScaledVector(segVec, segLen / d);
+        for (const col of cols) {
+          cTmp.set(col.center[0], col.center[1], col.center[2]);
+          segVec.subVectors(cur[j], cTmp);
+          const cd = segVec.length();
+          if (cd < col.radius && cd > 1e-5) {
+            cur[j].copy(cTmp).addScaledVector(segVec, col.radius / cd);
+          }
+        }
+      }
+    }
+
+    // Convert world segment orientations into relative local Euler angles per bone
+    let parentQ = new THREE.Quaternion();
+    for (let j = 0; j < J; j++) {
+      segVec.subVectors(cur[j + 1], cur[j]).normalize();
+      qTmp.setFromUnitVectors(restDir, segVec);
+      const localQ = parentQ.clone().invert().multiply(qTmp);
+      eTmp.setFromQuaternion(localQ, "XYZ");
+      const base = (f * J + j) * 3;
+      eulers[base + 0] = eTmp.x;
+      eulers[base + 1] = eTmp.y;
+      eulers[base + 2] = eTmp.z;
+      parentQ = qTmp.clone();
+    }
+  }
+
+  return {
+    frames: N,
+    joints: J,
+    eulers,
+    applyAt(nodes, f) {
+      const fi = Math.max(0, Math.min(N - 1, Math.round(f)));
+      const cnt = Math.min(J, nodes.length);
+      for (let j = 0; j < cnt; j++) {
+        const base = (fi * J + j) * 3;
+        nodes[j].rotation.set(eulers[base], eulers[base + 1], eulers[base + 2]);
+      }
+    },
+  };
+}

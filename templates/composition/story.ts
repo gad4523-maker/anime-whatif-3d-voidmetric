@@ -78,11 +78,20 @@ export const SPEEDLINES: SpeedlineCue[] = [];
 export const KITE_BOLTS: KiteBoltCue[] = [];
 export const HIT_STOPS: HitStopCue[] = [];
 export const SHOCKWAVES: ShockwaveCue[] = [];
+export const USE_CHROMAO = false; // Set true to enable chromatic N8AO architectural & character contact shadows!
+export const KUWAHARA: { a: number; b: number; strength: number; radius?: number }[] = []; // Optional painterly brush pass!
 
 // Picture-locked audio cues extracted automatically via `whatif_cli.py extract-events` into `audio/events.json`!
 export const AUDIO_EVENTS: AudioEventCue[] = [
   { f: 184, kind: "shock_ring", lane: "hero", gain: 0.78, duckDb: 4.0, riseFrames: 8, label: "Act transition pulse" },
 ];
+
+export const kuwaharaAt = (f: number): { strength: number; radius: number } => {
+  for (const k of KUWAHARA) {
+    if (f >= k.a && f < k.b) return { strength: k.strength, radius: k.radius ?? 3.0 };
+  }
+  return { strength: 0, radius: 3.0 };
+};
 
 export const shotAt = (f: number) => SHOTS.find((s) => f >= s.a && f < s.b) ?? SHOTS[SHOTS.length - 1];
 

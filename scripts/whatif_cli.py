@@ -84,7 +84,7 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
     # Optional: bootstrap full Remotion + Three.js project on fresh cloud sandboxes (e.g. Gemini Tasks)
     if args.bootstrap_remotion or not (remotion_root / "package.json").exists():
         starter = TEMPLATES_DIR / "starter-remotion"
-        for rel in ["package.json", "remotion.config.ts", "tsconfig.json", "src/index.ts"]:
+        for rel in ["package.json", "remotion.config.ts", "tsconfig.json", "src/index.ts", "src/voidmetric_deps.d.ts"]:
             copy_if_missing(starter / rel, remotion_root / rel)
         root_dst = remotion_root / "src" / "Root.tsx"
         if not root_dst.exists() or args.force:
@@ -92,6 +92,11 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             root_dst.parent.mkdir(parents=True, exist_ok=True)
             root_dst.write_text(root_txt.replace("{{EPISODE_SLUG}}", slug), encoding="utf-8")
             copied_files.append(str(root_dst))
+    else:
+        copy_if_missing(
+            TEMPLATES_DIR / "starter-remotion" / "src" / "voidmetric_deps.d.ts",
+            remotion_root / "src" / "voidmetric_deps.d.ts",
+        )
 
     # Always ensure bundled OFL Montserrat-Black font exists in public/fonts for identical Windows/Linux subtitles!
     copy_if_missing(
@@ -99,18 +104,21 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
         remotion_root / "public" / "fonts" / "Montserrat-Black.ttf",
     )
 
-    # Locked Voidmetric v3.0 3D Anime Rig core, Motion/Physics, Weapons/Props, Channel MC & Guest starter
+    # Voidmetric v4.3 3D Anime Rig core, IK/Spring Motion, Weapons/Props, Optional VRM Loader, Channel MC & Guest starter
     for rig_file, dst_name in [
         ("rig3d_core.ts", "rig3d_core.ts"),
         ("rig3d_mc.ts", "rig3d_mc.ts"),
         ("rig3d_guest_template.ts", "rig3d_guest.ts"),
         ("anim3d_core.ts", "anim3d_core.ts"),
         ("props3d_core.ts", "props3d_core.ts"),
+        ("vrm_core.ts", "vrm_core.ts"),
     ]:
         copy_if_missing(TEMPLATES_DIR / "rigs3d" / rig_file, src_dir / dst_name)
 
-    # Universal 9-engine 3D GLSL VFX + Sakuga FX + Cinematic Camera + Cel World Builder + Subtitles + LookCheck
+    # Custom 3D GLSL VFX + Destruction/Voronoi/CSG + Sakuga FX + Ghibli/Shinkai World Primitives + Camera + Subtitles + LookCheck
     copy_if_missing(TEMPLATES_DIR / "vfx" / "vfx3d_core.ts", src_dir / "vfx3d.ts")
+    copy_if_missing(TEMPLATES_DIR / "vfx" / "destruct3d_core.ts", src_dir / "destruct3d.ts")
+    copy_if_missing(TEMPLATES_DIR / "composition" / "world_fx_core.ts", src_dir / "world_fx.ts")
     for comp_file in [
         "Subtitles.tsx",
         "LookCheck3D.tsx",
@@ -145,10 +153,10 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
     ]:
         copy_if_missing(TEMPLATES_DIR / "audio" / aud_src, proj_dir / "audio" / aud_dst)
 
-    # Ensure shared bridge post-processing + 35mm FilmOptics + cardshade + WhipBlur exists
+    # Ensure shared bridge post-processing + 35mm FilmOptics + Kuwahara + Chromatic AO + cardshade + WhipBlur exists
     bridge_dir = remotion_root / "src" / "videos" / "bridge"
     bridge_dir.mkdir(parents=True, exist_ok=True)
-    for eng_file in ["ink.ts", "lensblur.ts", "whipblur.ts", "grade.ts", "filmoptics.ts", "shade.ts", "cardshade.ts"]:
+    for eng_file in ["ink.ts", "lensblur.ts", "whipblur.ts", "grade.ts", "filmoptics.ts", "kuwahara.ts", "ao.ts", "shade.ts", "cardshade.ts"]:
         copy_if_missing(TEMPLATES_DIR / "engine" / eng_file, bridge_dir / eng_file)
 
     # Instantiate doc templates with episode title & slug
@@ -752,34 +760,82 @@ def cmd_align_voice(args: argparse.Namespace) -> None:
     fps = int(args.fps)
     total_frames = int(math.ceil(dur_s * fps))
 
-    # 2. Extract word-level timestamps via faster-whisper (preferred) or openai-whisper
+    # 2. Extract word-level timestamps:
+    #    Priority 1: `stable-ts` (MIT) — supports exact forced alignment against `--script-text` so anime names
+    #                (e.g. Kyoka Suigetsu, Senku, Mahoraga) NEVER misspell or drift!
+    #    Priority 2: `faster-whisper` (fallback)
+    #    Priority 3: `openai-whisper` (fallback)
     words: list[dict[str, Any]] = []
     engine = "none"
-    try:
-        from faster_whisper import WhisperModel  # type: ignore
+    script_text = ""
+    if getattr(args, "script_text", ""):
+        sp = Path(args.script_text).resolve()
+        if sp.exists():
+            raw_txt = sp.read_text(encoding="utf-8")
+            # Strip markdown headings/stage brackets if pointing directly at SCRIPT.md
+            cleaned_lines = []
+            for ln in raw_txt.splitlines():
+                s = ln.strip()
+                if not s or s.startswith("#") or s.startswith("|") or s.startswith("---") or s.startswith(">"):
+                    continue
+                s = re.sub(r"\[[^\]]+\]", "", s)
+                s = re.sub(r"\*\*([^*]+)\*\*", r"\1", s)
+                if s.strip():
+                    cleaned_lines.append(s.strip())
+            script_text = " ".join(cleaned_lines)
 
-        engine = f"faster-whisper:{args.model}"
-        model = WhisperModel(args.model, device="cpu", compute_type="int8")
-        # Decode cleanly to 16 kHz mono float32 PCM via FFmpeg so newer PyAV (`av`) versions never crash on `metadata_errors`!
-        audio_input: Any = str(wav_out)
+    pref_engine = getattr(args, "engine", "auto")
+
+    if pref_engine in ("auto", "stable-ts"):
         try:
-            import numpy as np  # type: ignore
+            import stable_whisper  # type: ignore
 
-            pcm = subprocess.run(
-                ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(wav_out), "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
-                capture_output=True,
-                check=True,
-            )
-            audio_input = np.frombuffer(pcm.stdout, dtype=np.float32)
-        except Exception:
-            audio_input = str(wav_out)
-        segments, _info = model.transcribe(audio_input, word_timestamps=True, language=args.language)
-        for seg in segments:
-            for w in getattr(seg, "words", []) or []:
-                txt = (w.word or "").strip()
-                if txt:
-                    words.append({"word": txt, "start": round(float(w.start), 3), "end": round(float(w.end), 3)})
-    except ImportError:
+            model = stable_whisper.load_model(args.model)
+            if script_text:
+                engine = f"stable-ts-align:{args.model}"
+                res = model.align(str(wav_out), script_text, language=args.language)
+            else:
+                engine = f"stable-ts:{args.model}"
+                res = model.transcribe(str(wav_out), language=args.language, regroup=True)
+            for seg in res.segments:
+                for w in getattr(seg, "words", []) or []:
+                    txt = str(getattr(w, "word", "") or "").strip()
+                    if txt:
+                        words.append({"word": txt, "start": round(float(w.start), 3), "end": round(float(w.end), 3)})
+        except ImportError:
+            if pref_engine == "stable-ts":
+                fail("`stable-ts` is not installed. Run: pip install stable-ts")
+
+    if not words and pref_engine in ("auto", "faster-whisper"):
+        try:
+            from faster_whisper import WhisperModel  # type: ignore
+
+            engine = f"faster-whisper:{args.model}"
+            model = WhisperModel(args.model, device="cpu", compute_type="int8")
+            # Decode cleanly to 16 kHz mono float32 PCM via FFmpeg so newer PyAV (`av`) versions never crash on `metadata_errors`!
+            audio_input: Any = str(wav_out)
+            try:
+                import numpy as np  # type: ignore
+
+                pcm = subprocess.run(
+                    ["ffmpeg", "-hide_banner", "-loglevel", "error", "-i", str(wav_out), "-ac", "1", "-ar", "16000", "-f", "f32le", "-"],
+                    capture_output=True,
+                    check=True,
+                )
+                audio_input = np.frombuffer(pcm.stdout, dtype=np.float32)
+            except Exception:
+                audio_input = str(wav_out)
+            segments, _info = model.transcribe(audio_input, word_timestamps=True, language=args.language)
+            for seg in segments:
+                for w in getattr(seg, "words", []) or []:
+                    txt = (w.word or "").strip()
+                    if txt:
+                        words.append({"word": txt, "start": round(float(w.start), 3), "end": round(float(w.end), 3)})
+        except ImportError:
+            if pref_engine == "faster-whisper":
+                fail("`faster-whisper` is not installed. Run: pip install faster-whisper")
+
+    if not words:
         try:
             import whisper  # type: ignore
 
@@ -793,8 +849,8 @@ def cmd_align_voice(args: argparse.Namespace) -> None:
                         words.append({"word": txt, "start": round(float(w["start"]), 3), "end": round(float(w["end"]), 3)})
         except ImportError:
             fail(
-                "Neither `faster-whisper` nor `openai-whisper` is installed. "
-                "Install with: pip install faster-whisper (or run via `uv run --with faster-whisper scripts/whatif_cli.py align-voice ...`)."
+                "Neither `stable-ts`, `faster-whisper`, nor `openai-whisper` is installed. "
+                "Install with: pip install stable-ts (recommended for exact forced alignment) or pip install faster-whisper."
             )
 
     payload = {
@@ -1434,6 +1490,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_al.add_argument("--fps", type=int, required=True, help="Target FPS (30)")
     p_al.add_argument("--model", default="base", help="Whisper model size (tiny/base/small, default base)")
     p_al.add_argument("--language", default="en", help="Spoken language code (default en)")
+    p_al.add_argument("--script-text", default="", help="Optional ground-truth narration text/SCRIPT.md for exact `stable-ts` forced alignment (zero misspelled anime names!)")
+    p_al.add_argument("--engine", choices=["auto", "stable-ts", "faster-whisper", "whisper"], default="auto", help="Alignment backend (default auto: stable-ts -> faster-whisper -> whisper)")
     p_al.add_argument("--output", default="", help="Optional compact alignment summary JSON path")
     p_al.set_defaults(func=cmd_align_voice)
 

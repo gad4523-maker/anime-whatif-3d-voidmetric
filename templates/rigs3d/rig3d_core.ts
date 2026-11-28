@@ -39,8 +39,20 @@ export type AnimeMatOpts = {
   outline?: boolean;
   outlineWidth?: number;
   outlineColor?: THREE.ColorRepresentation;
-  /** Enable clean DBFZ/Genshin flat-face cel shading (crisp graphic cheek shadow, no muddy nose/ball shading!) */
+  /** Enable clean DBFZ/Genshin flat-face cel shading + analytic 2D SDF face shadow map! */
   isFace?: boolean;
+  /** Enable analytic 2D SDF face shadow contours (default true whenever `isFace: true`) */
+  faceSdf?: boolean;
+  /** Optional custom 2D SDF face shadow threshold texture (overrides analytic SDF contour) */
+  faceSdfMap?: THREE.Texture | null;
+  /** Enable Kajiya-Kay anisotropic "Angel Ring" anime hair specular highlight! */
+  isHair?: boolean;
+  /** Angel-Ring hair highlight color (default warm-white `#fff5ec`) */
+  hairRingColor?: THREE.ColorRepresentation;
+  /** Angel-Ring hair highlight strength (default 0.42 when `isHair: true`) */
+  hairRingStrength?: number;
+  /** Vertical tangent shift of the Angel-Ring halo along hair locks (-0.4..0.4, default 0.08) */
+  hairRingShift?: number;
 };
 
 // Shared studio/scene lighting direction for all 3D anime rigs (updatable per shot!)
@@ -56,12 +68,18 @@ const ANIME_VERT = /* glsl */ `
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
 varying vec2 vUv;
+varying vec3 vObjFwd;
+varying vec3 vObjRight;
+varying vec3 vObjUp;
 
 void main() {
   vUv = uv;
   vec4 wp = modelMatrix * vec4(position, 1.0);
   vWorldPos = wp.xyz;
   vWorldNormal = normalize(mat3(modelMatrix) * normal);
+  vObjRight = normalize(mat3(modelMatrix) * vec3(1.0, 0.0, 0.0));
+  vObjUp = normalize(mat3(modelMatrix) * vec3(0.0, 1.0, 0.0));
+  vObjFwd = normalize(mat3(modelMatrix) * vec3(0.0, 0.0, 1.0));
   gl_Position = projectionMatrix * viewMatrix * wp;
 }
 `;
@@ -82,6 +100,13 @@ uniform float uOpacity;
 uniform float uHasMap;
 uniform sampler2D uMap;
 uniform float uIsFace;
+uniform float uFaceSdf;
+uniform float uHasFaceSdfMap;
+uniform sampler2D uFaceSdfMap;
+uniform float uIsHair;
+uniform vec3 uHairRingColor;
+uniform float uHairRingStrength;
+uniform float uHairRingShift;
 
 uniform vec3 uLightDir;
 uniform vec3 uKeyColor;
@@ -92,6 +117,22 @@ uniform float uRimBoost;
 varying vec3 vWorldNormal;
 varying vec3 vWorldPos;
 varying vec2 vUv;
+varying vec3 vObjFwd;
+varying vec3 vObjRight;
+varying vec3 vObjUp;
+
+// Analytic 2D Anime Face Shadow Threshold Map (Hoyoverse / ArcSys technique):
+// Returns shadow threshold in [0..1] across planar front face UV (u = 0..1 mirrored by light side, v = 0 chin..1 crown).
+float evalAnalyticFaceSdf(vec2 uv) {
+  float x = clamp(uv.x, 0.0, 1.0);
+  float y = clamp(uv.y, 0.0, 1.0);
+  // Crisp anime shadow curve: recedes around cheek/temple, bends cleanly around nose bridge, sharpens at chin!
+  float cheekCurve = 0.09 * exp(-pow((y - 0.44) / 0.16, 2.0));
+  float noseRidge = -0.07 * exp(-pow((y - 0.36) / 0.09, 2.0)) * exp(-pow((x - 0.5) / 0.14, 2.0));
+  float browCut = 0.06 * exp(-pow((y - 0.66) / 0.10, 2.0));
+  float chinTaper = -0.10 * smoothstep(0.24, 0.04, y);
+  return clamp(x + cheekCurve + noseRidge + browCut + chinTaper, 0.0, 1.0);
+}
 
 void main() {
   vec3 N = normalize(vWorldNormal);
@@ -106,12 +147,29 @@ void main() {
   float texLuma = dot(tex.rgb, vec3(0.299, 0.587, 0.114));
   float inkMask = uHasMap > 0.5 ? smoothstep(0.14, 0.28, texLuma) : 1.0;
 
-  // 1) Arc System Works / FighterZ 3-Band Cel Shading (+ clean DBFZ/Genshin face-plane lift when uIsFace > 0.5!)
+  // 1) Arc System Works / Hoyoverse 3-Band Cel Shading + Optional 2D SDF Face Shadow Threshold Map!
   float rawNdl = dot(N, L);
   float ndl = mix(rawNdl, rawNdl * 0.78 + 0.22, uIsFace);
-  // Crisp anime cel step: lit band vs chromatic shadow band
   float lit = smoothstep(mix(-0.04, -0.02, uIsFace), mix(0.08, 0.04, uIsFace), ndl);
-  // Secondary deep core shadow in deep crevices / facing away from key
+
+  if (uIsFace > 0.5 && uFaceSdf > 0.5) {
+    vec2 fwdXZ = normalize(vec2(vObjFwd.x, vObjFwd.z) + vec2(1e-5, 0.0));
+    vec2 rgtXZ = normalize(vec2(vObjRight.x, vObjRight.z) + vec2(1e-5, 0.0));
+    vec2 lgtXZ = normalize(vec2(L.x, L.z) + vec2(1e-5, 0.0));
+    float fDotL = dot(fwdXZ, lgtXZ);          // +1 front-lit, -1 back-lit
+    float rDotL = dot(rgtXZ, lgtXZ);          // sign selects which cheek receives light
+    vec2 sdfUv = vec2(rDotL >= 0.0 ? vUv.x : (1.0 - vUv.x), vUv.y);
+    float sdfThresh = uHasFaceSdfMap > 0.5
+      ? texture2D(uFaceSdfMap, sdfUv).r
+      : evalAnalyticFaceSdf(sdfUv);
+    // Remap horizontal light yaw into [0..1] shadow sweep (keeps front-lit faces cleanly open, dramatic side/rim shadow!)
+    float lightSweep = clamp(0.5 - 0.52 * fDotL, 0.0, 1.0);
+    float sdfLit = smoothstep(lightSweep - 0.035, lightSweep + 0.035, sdfThresh);
+    // Keep front-facing pixels under clean SDF face shadow while back-of-head uses normal cel shading
+    float frontFaceMask = smoothstep(-0.05, 0.25, dot(N, normalize(vObjFwd)));
+    lit = mix(lit, sdfLit, frontFaceMask);
+  }
+
   float deepSh = smoothstep(-0.65, -0.22, ndl);
   vec3 shadowCol = albedo * uShadowColor;
   vec3 deepCol = mix(shadowCol * vec3(0.76, 0.72, 0.84), shadowCol * vec3(0.90, 0.86, 0.92), uIsFace);
@@ -122,14 +180,27 @@ void main() {
   float hemi = N.y * 0.5 + 0.5;
   col += albedo * uAmbientTint * (0.08 + 0.07 * hemi);
 
-  // 2) Crisp Cel Specular Highlight (suppressed on flat anime faces so no plastic forehead glare!)
+  // 2) Crisp Cel Specular Highlight + Kajiya-Kay "Angel Ring" Anisotropic Hair Halo!
   vec3 H = normalize(L + V);
   float ndh = max(dot(N, H), 0.0);
-  float specBand = smoothstep(uSpecSize, uSpecSize + 0.025, ndh) * (1.0 - uIsFace * 0.88);
+  float specBand = smoothstep(uSpecSize, uSpecSize + 0.025, ndh) * (1.0 - uIsFace * 0.88) * (1.0 - uIsHair * 0.65);
   float metalBoost = mix(1.0, 2.2, uMetalness);
-  // Secondary bright metal reflection stripe on gold cuffs & ornaments
   float metalRefl = uMetalness * smoothstep(0.68, 0.76, abs(dot(N, normalize(vec3(-0.3, 0.8, 0.5))))) * 0.55;
   col += uSpecColor * (specBand * uSpecStrength * metalBoost * lit + metalRefl) * inkMask;
+
+  if (uIsHair > 0.5 && uHairRingStrength > 0.005) {
+    // Strand tangent aligned along hair lock flow + subtle comb jitter for authentic painted anime hair sheen!
+    vec3 strandSide = normalize(cross(vObjUp, N) + vec3(1e-4, 0.0, 0.0));
+    vec3 T0 = normalize(cross(N, strandSide));
+    float strandShift = uHairRingShift + 0.07 * sin(vUv.x * 44.0 + vUv.y * 9.0) + 0.04 * cos(vUv.x * 88.0);
+    vec3 T = normalize(T0 + N * strandShift);
+    float tdh = dot(T, H);
+    float sinTH = sqrt(max(0.0, 1.0 - tdh * tdh));
+    float ringPrimary = smoothstep(0.87, 0.92, pow(sinTH, 18.0));
+    float ringSecondary = smoothstep(0.76, 0.84, pow(sinTH, 9.0)) * 0.35;
+    float hairGate = smoothstep(-0.15, 0.35, ndl) * smoothstep(0.15, 0.65, max(dot(N, V), 0.0));
+    col += uHairRingColor * (ringPrimary + ringSecondary) * uHairRingStrength * hairGate * inkMask;
+  }
 
   // 3) View-Dependent Fresnel Anime Rim Light (bright razor rim on lit/grazing silhouette edge!)
   float fresnel = pow(1.0 - max(dot(N, V), 0.0), uRimPower);
@@ -137,7 +208,7 @@ void main() {
   float rimStep = smoothstep(0.38, 0.62, fresnel) * uRimStrength * uRimBoost * rimGate * inkMask;
   col += (uRimColor * uRimTint) * rimStep;
 
-  // 4) HDR Emissive (feeds mromidev 6-level Mipmap Bloom!)
+  // 4) HDR Emissive (feeds 6-level Mipmap Bloom!)
   col += uEmissive * uEmissiveIntensity;
 
   gl_FragColor = vec4(col, uOpacity * tex.a);
@@ -173,6 +244,13 @@ export function makeAnimeMat(opts: AnimeMatOpts = {}): THREE.ShaderMaterial {
       uHasMap: { value: opts.map ? 1.0 : 0.0 },
       uMap: { value: opts.map ?? null },
       uIsFace: { value: opts.isFace ? 1.0 : 0.0 },
+      uFaceSdf: { value: opts.faceSdf === false ? 0.0 : opts.isFace ? 1.0 : 0.0 },
+      uHasFaceSdfMap: { value: opts.faceSdfMap ? 1.0 : 0.0 },
+      uFaceSdfMap: { value: opts.faceSdfMap ?? null },
+      uIsHair: { value: opts.isHair ? 1.0 : 0.0 },
+      uHairRingColor: { value: new THREE.Color(opts.hairRingColor ?? "#fff6ee") },
+      uHairRingStrength: { value: opts.hairRingStrength ?? (opts.isHair ? 0.44 : 0.0) },
+      uHairRingShift: { value: opts.hairRingShift ?? 0.08 },
       uLightDir: ANIME_LIGHT.uLightDir,
       uKeyColor: ANIME_LIGHT.uKeyColor,
       uAmbientTint: ANIME_LIGHT.uAmbientTint,

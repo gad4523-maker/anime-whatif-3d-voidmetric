@@ -16,6 +16,8 @@ import { LensBlur } from "../bridge/lensblur";
 import { WhipBlur } from "../bridge/whipblur";
 import { GradeEffect } from "../bridge/grade";
 import { FilmOpticsEffect } from "../bridge/filmoptics";
+import { KuwaharaEffect } from "../bridge/kuwahara";
+import { createChromaticAO } from "../bridge/ao";
 import { getEpisodeLight } from "./lights";
 import { EpisodeWorld } from "./world";
 import {
@@ -24,9 +26,11 @@ import {
   KITE_BOLTS,
   SPEEDLINES,
   TOTAL,
+  USE_CHROMAO,
   camAt,
   dofAt,
   flashAt,
+  kuwaharaAt,
   layersAt,
   lightForShot,
   shockwaveAt,
@@ -65,6 +69,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
 
   const fx = useMemo(
     () => ({
+      ao: USE_CHROMAO ? createChromaticAO(scene, camera, { aoRadius: 0.85, intensity: 1.35, color: "#22183a", halfRes: true }) : null,
       ink: new InkPass(scene, camera as THREE.PerspectiveCamera, {
         color: "#05040a",
         widthNear: 4.6,
@@ -76,6 +81,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       whip: new WhipBlur(),
       tone: new ToneMappingEffect({ mode: ToneMappingMode.NEUTRAL }),
       grade: new GradeEffect(getEpisodeLight("base").grade, 1.0),
+      kuwahara: new KuwaharaEffect({ strength: 0.0, radius: 3.0 }),
       optics: new FilmOpticsEffect({
         halationAmount: 0.20,
         halationTint: "#ffdfc2",
@@ -91,10 +97,12 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
   // IMPORTANT: Never put dispose={null} on <primitive object={fx.ink} /> (shadows InkPass.prototype.dispose)!
   useEffect(
     () => () => {
+      if (fx.ao && typeof fx.ao.dispose === "function") fx.ao.dispose();
       if (typeof fx.ink.dispose === "function") fx.ink.dispose();
       else InkPass.prototype.dispose.call(fx.ink);
       if (typeof fx.lens.dispose === "function") fx.lens.dispose();
       if (typeof fx.whip.dispose === "function") fx.whip.dispose();
+      if (typeof fx.kuwahara.dispose === "function") fx.kuwahara.dispose();
       if (typeof fx.optics.dispose === "function") fx.optics.dispose();
     },
     [fx]
@@ -116,11 +124,15 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
 
   const lName = lightForShot(id, animF);
   fx.grade.set(getEpisodeLight(lName).grade);
+  const kuw = kuwaharaAt(f);
+  fx.kuwahara.strength = kuw.strength;
+  fx.kuwahara.radius = kuw.radius;
   fx.optics.seed = f;
   fx.optics.setShockwave(shockwaveAt(f));
 
   const passes = useMemo(
     () => [
+      ...(fx.ao ? [<primitive key="ao" object={fx.ao} />] : []),
       <primitive key="ink" object={fx.ink} />,
       <primitive key="pre" object={fx.lens.pre} />,
       <primitive key="lens" object={fx.lens.main} />,
@@ -128,6 +140,7 @@ const Inner: React.FC<{ id: number; frame: number }> = ({ id, frame: f }) => {
       <primitive key="whip" object={fx.whip} />,
       <primitive key="tone" object={fx.tone} />,
       <primitive key="grade" object={fx.grade} />,
+      <primitive key="kuwahara" object={fx.kuwahara} />,
       <primitive key="optics" object={fx.optics} />,
     ],
     [fx]

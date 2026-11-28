@@ -1,27 +1,39 @@
 {
   "name": "voidmetric-anime-whatif-remotion",
-  "version": "1.0.0",
+  "version": "4.3.0",
   "private": true,
   "scripts": {
     "studio": "remotion studio",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@dgreenheck/ez-tree": "1.1.0",
+    "@dgreenheck/three-pinata": "2.0.1",
+    "@dimforge/rapier3d-compat": "0.19.3",
+    "@pixiv/three-vrm": "3.6.0",
+    "@pixiv/three-vrm-animation": "3.6.0",
     "@react-three/fiber": "8.17.10",
     "@react-three/postprocessing": "2.16.3",
     "@remotion/bundler": "4.0.547",
     "@remotion/cli": "4.0.547",
     "@remotion/renderer": "4.0.547",
     "@remotion/three": "4.0.547",
+    "meshline": "3.3.1",
+    "n8ao": "2.1.0",
     "postprocessing": "6.37.8",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "remotion": "4.0.547",
-    "three": "0.170.0"
+    "three": "0.170.0",
+    "three-bvh-csg": "0.0.17",
+    "three-custom-shader-material": "6.4.0",
+    "three-mesh-bvh": "0.8.0",
+    "three.quarks": "0.15.4",
+    "troika-three-text": "0.54.0"
   },
   "devDependencies": {
     "@types/react": "18.3.12",
-    "@types/react-dom": "18.3.1",
+    "@types/react-dom": "18.3.12",
     "@types/three": "0.170.0",
     "esbuild": "0.25.0",
     "typescript": "5.7.3"
