@@ -98,13 +98,14 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
             remotion_root / "src" / "voidmetric_deps.d.ts",
         )
 
-    # Always ensure bundled OFL Montserrat-Black font exists in public/fonts for identical Windows/Linux subtitles!
+    # Always ensure bundled OFL Montserrat-Black font + public/assets drop folder exist!
     copy_if_missing(
         TEMPLATES_DIR / "starter-remotion" / "public" / "fonts" / "Montserrat-Black.ttf",
         remotion_root / "public" / "fonts" / "Montserrat-Black.ttf",
     )
+    (remotion_root / "public" / "assets").mkdir(parents=True, exist_ok=True)
 
-    # Voidmetric v4.3 3D Anime Rig core, IK/Spring Motion, Weapons/Props, Optional VRM Loader, Channel MC & Guest starter
+    # Voidmetric v5.0 3D Anime Rig core, IK/Spring Motion, Weapons/Props, Optional VRM & Cel-GLB Loaders, Channel MC & Guest starter
     for rig_file, dst_name in [
         ("rig3d_core.ts", "rig3d_core.ts"),
         ("rig3d_mc.ts", "rig3d_mc.ts"),
@@ -112,12 +113,14 @@ def cmd_init_episode(args: argparse.Namespace) -> None:
         ("anim3d_core.ts", "anim3d_core.ts"),
         ("props3d_core.ts", "props3d_core.ts"),
         ("vrm_core.ts", "vrm_core.ts"),
+        ("asset3d_core.ts", "asset3d.ts"),
     ]:
         copy_if_missing(TEMPLATES_DIR / "rigs3d" / rig_file, src_dir / dst_name)
 
-    # Custom 3D GLSL VFX + Destruction/Voronoi/CSG + Sakuga FX + Ghibli/Shinkai World Primitives + Camera + Subtitles + LookCheck
+    # Custom 3D GLSL VFX + Destruction/Voronoi/Rapier/CSG + Deterministic Quarks + Sakuga FX + Ghibli/Shinkai World Primitives
     copy_if_missing(TEMPLATES_DIR / "vfx" / "vfx3d_core.ts", src_dir / "vfx3d.ts")
     copy_if_missing(TEMPLATES_DIR / "vfx" / "destruct3d_core.ts", src_dir / "destruct3d.ts")
+    copy_if_missing(TEMPLATES_DIR / "vfx" / "particles3d_core.ts", src_dir / "particles3d.ts")
     copy_if_missing(TEMPLATES_DIR / "composition" / "world_fx_core.ts", src_dir / "world_fx.ts")
     for comp_file in [
         "Subtitles.tsx",
@@ -1417,6 +1420,154 @@ process.stdout.write(JSON.stringify({ fps, total, shots: shots.map((s) => ({ id:
     print(f"Extracted {len(payload.get('events', []))} picture-locked audio events ({payload.get('fps')} fps) -> {out_path}")
 
 
+# ---------------------------------------------------------------------------
+# 12. forge-asset (Voidmetric v5.0 Local RTX GPU 3D Asset Forge CLI Bridge)
+# ---------------------------------------------------------------------------
+def cmd_forge_asset(args: argparse.Namespace) -> None:
+    lab_root = Path(args.lab_dir or os.environ.get("VOIDMETRIC_AI_LAB", r"F:\burgess\voidmetric-ai-lab")).resolve()
+    py_exe = lab_root / ".venv" / "Scripts" / "python.exe"
+    if not py_exe.exists():
+        py_exe = lab_root / ".venv" / "bin" / "python"
+    if not py_exe.exists():
+        fail(f"Local AI 3D Lab venv not found under {lab_root}. Install TripoSG / PartCrafter / UniRig first.")
+
+    inp_path = Path(args.input).resolve()
+    if not inp_path.exists():
+        fail(f"Input file not found: {inp_path}")
+
+    out_glb = Path(args.out_glb).resolve()
+    out_glb.parent.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["HF_HOME"] = str(lab_root / ".cache" / "hf")
+    env["TORCH_HOME"] = str(lab_root / ".cache" / "torch")
+
+    def run_step(cmd: list[str], cwd: Path, extra_pypath: Path) -> None:
+        step_env = env.copy()
+        step_env["PYTHONPATH"] = str(extra_pypath)
+        proc = subprocess.run(cmd, cwd=str(cwd), env=step_env)
+        if proc.returncode != 0:
+            fail(f"Forge step failed (exit {proc.returncode}): {' '.join(cmd)}")
+
+    produced_files: list[str] = []
+    mode = args.mode
+
+    if mode in ("triposg", "full-rig"):
+        tripo_dir = lab_root / "TripoSG"
+        mesh_out = out_glb if mode == "triposg" else out_glb.with_suffix(".unrigged.glb")
+        run_step(
+            [
+                str(py_exe),
+                str(tripo_dir / "scripts" / "inference_triposg.py"),
+                "--image-input", str(inp_path),
+                "--output-path", str(mesh_out),
+                "--num-inference-steps", str(args.steps),
+                "--faces", str(args.faces),
+                "--seed", str(args.seed),
+            ],
+            tripo_dir,
+            tripo_dir,
+        )
+        produced_files.append(str(mesh_out))
+        if mode == "full-rig":
+            inp_path = mesh_out
+
+    if mode == "partcrafter":
+        pc_dir = lab_root / "PartCrafter"
+        tag = out_glb.stem
+        out_root = out_glb.parent
+        pc_cmd = [
+            str(py_exe),
+            str(pc_dir / "scripts" / "inference_partcrafter.py"),
+            "--image_path", str(inp_path),
+            "--num_parts", str(args.num_parts),
+            "--output_dir", str(out_root),
+            "--tag", tag,
+            "--num_inference_steps", str(args.steps),
+            "--seed", str(args.seed),
+        ]
+        if args.rmbg:
+            pc_cmd.append("--rmbg")
+        run_step(pc_cmd, pc_dir, pc_dir)
+        part_dir = out_root / tag
+        if (part_dir / "object.glb").exists():
+            shutil.copy2(part_dir / "object.glb", out_glb)
+            produced_files.append(str(out_glb))
+        for p in sorted(part_dir.glob("part_*.glb")):
+            produced_files.append(str(p))
+
+    if mode in ("unirig", "full-rig"):
+        unirig_dir = lab_root / "UniRig"
+        tmp_npz = unirig_dir / "tmp_voidmetric"
+        skel_fbx = out_glb.with_suffix(".skeleton.fbx")
+        run_step(
+            [
+                str(py_exe), "-m", "src.data.extract",
+                "--config=configs/data/quick_inference.yaml",
+                "--require_suffix=obj,fbx,FBX,dae,glb,gltf,vrm",
+                "--force_override=true",
+                "--num_runs=1", "--id=0", "--time=voidmetric",
+                f"--faces_target_count={args.faces}",
+                f"--input={inp_path}",
+                f"--output_dir={tmp_npz}",
+            ],
+            unirig_dir,
+            unirig_dir,
+        )
+        run_step(
+            [
+                str(py_exe), "run.py",
+                "--task=configs/task/quick_inference_skeleton_articulationxl_ar_256.yaml",
+                f"--seed={args.seed}",
+                f"--input={inp_path}",
+                f"--output={skel_fbx}",
+                f"--npz_dir={tmp_npz}",
+            ],
+            unirig_dir,
+            unirig_dir,
+        )
+        produced_files.append(str(skel_fbx))
+        blender_cands = [
+            Path(r"C:\Program Files\Blender Foundation\Blender 4.5\blender.exe"),
+            Path(r"C:\Program Files\Blender Foundation\Blender 4.4\blender.exe"),
+            Path(shutil.which("blender") or ""),
+        ]
+        blender_exe = next((b for b in blender_cands if b and b.exists() and b.is_file()), None)
+        autoskin_py = lab_root / "blender_autoskin_glb.py"
+        if blender_exe and autoskin_py.exists():
+            run_step(
+                [
+                    str(blender_exe), "--background", "--python", str(autoskin_py), "--",
+                    "--skeleton", str(skel_fbx),
+                    "--mesh", str(inp_path),
+                    "--output", str(out_glb),
+                ],
+                lab_root,
+                lab_root,
+            )
+            produced_files.append(str(out_glb))
+
+    if args.optimize and out_glb.exists():
+        gt = shutil.which("gltf-transform") or shutil.which("gltf-transform.cmd")
+        if gt:
+            opt_tmp = out_glb.with_suffix(".opt.glb")
+            r_opt = subprocess.run([gt, "optimize", str(out_glb), str(opt_tmp), "--compress", "false"], capture_output=True, text=True)
+            if r_opt.returncode == 0 and opt_tmp.exists():
+                shutil.move(str(opt_tmp), str(out_glb))
+
+    payload = {
+        "status": "ok",
+        "mode": mode,
+        "input": str(inp_path),
+        "out_glb": str(out_glb),
+        "produced_files": produced_files,
+        "voidmetric_snippet": f'const asset = await loadAnimeGLB(staticFile("assets/{out_glb.name}"), {{ targetHeight: 1.75 }});',
+    }
+    if args.output:
+        write_json(Path(args.output).resolve(), payload)
+    print(f"Forge complete ({mode}) -> {out_glb}")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="whatif_cli.py", description="Voidmetric Anime What-If 3D Short CLI")
     sub = p.add_subparsers(dest="command", required=True)
@@ -1533,6 +1684,20 @@ def build_parser() -> argparse.ArgumentParser:
     p_ev.add_argument("--remotion-root", default="", help="Path to workspace-remotion root (for resolving esbuild)")
     p_ev.add_argument("--output", required=True, help="Destination events.json path (e.g. projects/<slug>/audio/events.json)")
     p_ev.set_defaults(func=cmd_extract_events)
+
+    p_fg = sub.add_parser("forge-asset", help="Voidmetric v5.0 local RTX GPU Asset Forge (TripoSG / PartCrafter / UniRig + Blender Auto-Skin)")
+    p_fg.add_argument("--mode", choices=["triposg", "partcrafter", "unirig", "full-rig"], default="triposg", help="Forge pipeline mode")
+    p_fg.add_argument("--input", required=True, help="Input 2D reference image (.png/.jpg/.webp) or 3D mesh (.glb/.fbx/.obj for unirig)")
+    p_fg.add_argument("--out-glb", required=True, help="Destination .glb path")
+    p_fg.add_argument("--faces", type=int, default=30000, help="Target mesh face count (default 30000)")
+    p_fg.add_argument("--steps", type=int, default=50, help="Diffusion inference steps (default 50)")
+    p_fg.add_argument("--num-parts", type=int, default=4, help="PartCrafter part count (2..12, default 4)")
+    p_fg.add_argument("--rmbg", action="store_true", help="Remove background automatically in PartCrafter")
+    p_fg.add_argument("--seed", type=int, default=42, help="Deterministic RNG seed")
+    p_fg.add_argument("--optimize", action="store_true", help="Run gltf-transform optimize on output .glb")
+    p_fg.add_argument("--lab-dir", default="", help="Optional override for voidmetric-ai-lab root")
+    p_fg.add_argument("--output", default="", help="Optional JSON report path")
+    p_fg.set_defaults(func=cmd_forge_asset)
 
     return p
 
